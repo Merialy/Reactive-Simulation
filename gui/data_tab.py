@@ -42,7 +42,7 @@ class DataTabMixin:
         
         self._initialize_empty_table()
 
-    # ==================== МЕТОДИ ДЛЯ РЕДАГУВАННЯ ====================
+    # ==== МЕТОДИ ДЛЯ РЕДАГУВАННЯ ===
     
     # Створює порожню таблицю з параметрами
     def _initialize_empty_table(self):
@@ -77,10 +77,7 @@ class DataTabMixin:
         if self.excel_data is None or self.num_columns <= 1:
             messagebox.showwarning("Попередження", "Неможливо видалити стовпець з назвами параметрів!")
             return
-        
-        # Отримуємо всі виділені колонки через headings
-        selected_columns = []
-        
+                
         # Перевіряємо які колонки виділені (крім першої)
         for col_id in self.tree['columns']:
             if col_id == 'Параметр':
@@ -318,14 +315,14 @@ class DataTabMixin:
         Повертає True якщо OK, False якщо виходить за межі
         """
         bounds = {
-            0: (0, 10, "λ1 (інтенсівність потоку подій МРЧ)"),
-            1: (0, 1, "s1 (тривалість первинної обробки)"),
-            2: (0, 1, "s2 (тривалість вторинної обробки подій МРЧ)"),
-            3: (0, 10000, "N (кількість подій для моделювання)"),
-            4: (0, 10, "Deadline 1"),
-            5: (0, 10, "λ2 (частота подій жорсткого)"),
-            6: (0, 2, "s2b (тривалість вторинної обробки подій жорсткого РЧ)"),
-            7: (0, 10, "Deadline 2")
+            0: (0.001, 2, "λ1 (інтенсівність потоку подій МРЧ)"),
+            1: (0.001, 1, "s1 (тривалість первинної обробки)"),
+            2: (0.001, 1, "s2 (тривалість вторинної обробки подій МРЧ)"),
+            3: (0.001, 10000, "N (кількість подій для моделювання)"),
+            4: (0.001, 2, "Deadline 1"),
+            5: (0.001, 2, "λ2 (частота подій жорсткого)"),
+            6: (0.001, 2, "s2b (тривалість вторинної обробки подій жорсткого РЧ)"),
+            7: (0.001, 2, "Deadline 2")
         }
         
         if row_idx in bounds:
@@ -394,6 +391,7 @@ class DataTabMixin:
             str_values = [str(v).replace('.', ',') if pd.notna(v) and v != '' else '' for v in values]
             self.tree.insert('', 'end', values=str_values)
 
+    # ==================== МЕТОД ЗАВАНТАЖЕННЯ EXCEL ФАЙЛУ ====================
     def load_excel_file(self):
         file_path = filedialog.askopenfilename(
             title="Оберіть Excel файл",
@@ -431,6 +429,7 @@ class DataTabMixin:
             messagebox.showerror("Помилка", f"Не вдалося завантажити файл: {str(e)}")
             self.excel_data = None
 
+    # ОЧИЩАЄ ПОПЕРЕДНІ РЕЗУЛЬТАТИ ПРИ ЗАВАНТАЖЕННІ НОВОГО ФАЙЛУ
     def _clear_previous_results(self):
         print("\n🧹 Очищення попередніх результатів...")
                 
@@ -491,16 +490,16 @@ class DataTabMixin:
                     
                     # 🔹 ПРОВЕРКА ГРАНИЦ ПРИ ЗАГРУЗКЕ ФАЙЛА
                     bounds = {
-                        0: (0.001, 10, "λ1"),
+                        0: (0.001, 2, "λ1"),
                         1: (0.001, 1, "s1"),
                         2: (0.001, 1, "s2"),
                         3: (0.001, 10000, "N"),
-                        4: (0.001, 10, "Deadline 1"),
-                        5: (0.001, 10, "λ2"),
+                        4: (0.001, 2, "Deadline 1"),
+                        5: (0.001, 2, "λ2"),
                         6: (0.001, 2, "s2b"),
-                        7: (0.001, 10, "Deadline 2")
+                        7: (0.001, 2, "Deadline 2")
                     }
-                    
+
                     if row in bounds:
                         min_val, max_val, param_name = bounds[row]
                         if not (min_val <= float_value <= max_val):
@@ -526,14 +525,14 @@ class DataTabMixin:
                 error_message += f"\n... та ще {len(validation_errors) - 10} помилок"
             
             error_message += "\n\nВимоги:"
-            error_message += "\n• λ1: 0..10"
+            error_message += "\n• λ1: 0..2"
             error_message += "\n• s1: 0..1"
             error_message += "\n• s2: 0..1"
             error_message += "\n• N: 0..10000"
-            error_message += "\n• Deadline 1: 0..10"
-            error_message += "\n• λ2: 0..10"
+            error_message += "\n• Deadline 1: 0..2"
+            error_message += "\n• λ2: 0..2"
             error_message += "\n• s2b: 0..2"
-            error_message += "\n• Deadline 2: 0..10"
+            error_message += "\n• Deadline 2: 0..2"
             
             messagebox.showerror("Помилка валідації даних", error_message)
             
@@ -553,7 +552,7 @@ class DataTabMixin:
         
         return True
 
-    
+    # Обробка та відображення даних з Excel
     def _process_excel_data(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -581,6 +580,7 @@ class DataTabMixin:
         self.convert_excel_to_parameters()
         self.update_plot_options_based_on_s2_and_d1()
 
+    # Групує значення в рядку по непорожніх групах
     def _get_grouped_values(self, row_data):
         all_groups, current_group = [], []
         
@@ -597,6 +597,7 @@ class DataTabMixin:
         
         return all_groups
 
+    # Оновлює колонки дерева відповідно до кількості стовпців даних
     def update_tree_columns(self, num_data_columns):
         new_columns = ['Параметр'] + [f'Стовпець {i+1}' for i in range(num_data_columns)]
         self.tree['columns'] = new_columns
@@ -615,6 +616,7 @@ class DataTabMixin:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
+    # Конвертує дані Excel у набір параметрів для симуляції
     def convert_excel_to_parameters(self):
         if self.excel_data is None:
             return []
@@ -629,6 +631,7 @@ class DataTabMixin:
         self._log_parameter_stats(parameter_sets)
         return parameter_sets
 
+    # Витягує параметри з одного стовпця
     def _extract_column_params(self, col):
         if not self._column_has_data(col):
             return None
@@ -652,6 +655,7 @@ class DataTabMixin:
             print(f"Помилка стовпця {col}: {e}")
             return None
 
+    # Перевіряє чи стовпець має хоча б одне непорожнє значення
     def _column_has_data(self, col):
         for row in range(Config.MIN_ROWS):
             cell_value = self.excel_data.iloc[row, col]
@@ -659,6 +663,7 @@ class DataTabMixin:
                 return True
         return False
 
+    # Конвертує рядок у float
     def _convert_to_float(self, value_str):
         try:
             clean_str = str(value_str).strip().replace(',', '.')
@@ -666,6 +671,7 @@ class DataTabMixin:
         except (ValueError, TypeError):
             return 0.0
 
+    # Логує статистику по наборам параметрів
     def _log_parameter_stats(self, parameter_sets):
         total = len(parameter_sets)
         valid = sum(1 for p in parameter_sets if p is not None)
@@ -673,4 +679,3 @@ class DataTabMixin:
         
         print(f"Загальна кількість наборів: {total}")
         print(f"Валідних: {valid}, Порожніх: {empty}")
-

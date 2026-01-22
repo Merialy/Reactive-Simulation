@@ -244,7 +244,6 @@ class VisualizationMixin:
             return
         
         s2_labels = self._get_s2_labels_for_groups()
-        messagebox.showinfo("Інформація", f's2_labels: {s2_labels}')
         valid_results = [r for r in self.simulation_results if r is not None]
         if not valid_results:
             messagebox.showwarning("Попередження", "Немає валідних результатів!")
@@ -259,7 +258,6 @@ class VisualizationMixin:
                 continue
             
             num_points = len(d1_group)
-            messagebox.showinfo("Інформація", f'Група {i+1}: num_points={num_points}, current_result_idx={current_result_idx}')
             available_points = len(valid_results) - current_result_idx
             
             if available_points < num_points:
