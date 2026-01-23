@@ -143,7 +143,7 @@ class VisualizationMixin:
                 s2_flat.append(group)
         
         # Сортуємо для коректного відображення на графіку
-        s2_flat = sorted(s2_flat)
+        s2_flat = sorted(s2_flat, reverse=True)
         num_points = len(s2_flat)        
         
         valid_results = [r for r in self.simulation_results if r is not None][:num_points]
