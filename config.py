@@ -2,7 +2,7 @@ import numpy as np # type: ignore
 
 # Конфігурація додатку
 class Config:
-    APP_VERSION = "1.2"
+    APP_VERSION = "2.0"
     DEFAULT_REPLICATIONS = 5   # кількість незалежних прогонів R (п. 2.6.5)
     DEFAULT_SEED = 42          # початкове значення генератора
     WORKERS = None             # кількість процесів для симуляції (None – автоматично)

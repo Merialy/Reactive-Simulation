@@ -1,0 +1,37 @@
+{
+  "name": "Базовий сценарій статті (s2 = 0.5 мс)",
+  "platform": {
+    "name": "БО",
+    "f_clk_mhz": null,
+    "c_irq": null,
+    "c_core": null,
+    "t_irq_ms": 0.002,
+    "t_core_ms": 0.0
+  },
+  "event_types": [
+    {
+      "name": "МРЧ",
+      "cls": "SRT",
+      "rate": 1,
+      "deadline_ms": 1,
+      "wcet_ms": 0.5,
+      "wcet_cycles": null,
+      "arrival": null,
+      "phase_ms": null
+    },
+    {
+      "name": "ЖРЧ",
+      "cls": "HRT",
+      "rate": 2,
+      "deadline_ms": 0.2,
+      "wcet_ms": 0.1,
+      "wcet_cycles": null,
+      "arrival": null,
+      "phase_ms": null
+    }
+  ],
+  "N": 10000,
+  "warmup_fraction": 0.05,
+  "description": "Відповідає одному стовпцю Excel-файлу: один тип МРЧ і один тип ЖРЧ.",
+  "schema_version": 2
+}

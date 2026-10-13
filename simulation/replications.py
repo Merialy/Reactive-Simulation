@@ -131,3 +131,52 @@ def run_batch(param_list, replications: int = 5, base_seed: int = 42,
             mean[m], ci[m] = s['mean'], s['ci']
         out.append({'mean': mean, 'ci': ci, 'runs': runs[i]})
     return out
+
+
+# ---------------------------------------------------------------------------
+# Сценарії з кількома типами подій (версія 2.0)
+# ---------------------------------------------------------------------------
+def _run_scenario_one(task):
+    scenario_dict, seed = task
+    from simulation.engine import EventSimulation
+    from simulation.model import Scenario
+    return EventSimulation(seed=seed).run(Scenario.from_dict(scenario_dict))
+
+
+def run_scenario_replications(scenario, replications: int = 5, base_seed: int = 42,
+                              workers: Optional[int] = None) -> Dict:
+    """
+    R прогонів сценарію з кількома типами подій.
+
+    Повертає {'classic': {'mean', 'ci'}, 'per_type': {тип: {показник: {'mean', 'ci'}}}, 'U', 'runs'}.
+    """
+    import os
+    from concurrent.futures import ProcessPoolExecutor
+
+    replications = max(1, int(replications))
+    d = scenario.to_dict()
+    tasks = [(d, base_seed + r) for r in range(replications)]
+    if workers is None:
+        workers = max(1, (os.cpu_count() or 2) - 1)
+    workers = min(workers, replications)
+    runs = None
+    if workers > 1:
+        try:
+            with ProcessPoolExecutor(max_workers=workers) as ex:
+                runs = list(ex.map(_run_scenario_one, tasks))
+        except (OSError, RuntimeError, ImportError):
+            runs = None
+    if runs is None:
+        runs = [_run_scenario_one(t) for t in tasks]
+
+    classic = {'mean': {}, 'ci': {}}
+    for m in METRIC_IDS:
+        s = summarize([r['classic'][m] for r in runs])
+        classic['mean'][m], classic['ci'][m] = s['mean'], s['ci']
+    per_type = {}
+    for name in runs[0]['per_type']:
+        per_type[name] = {}
+        for key in runs[0]['per_type'][name]:
+            s = summarize([r['per_type'][name][key] for r in runs])
+            per_type[name][key] = {'mean': s['mean'], 'ci': s['ci']}
+    return {'classic': classic, 'per_type': per_type, 'U': runs[0]['U'], 'runs': runs}
