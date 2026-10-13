@@ -48,7 +48,8 @@ class DataTabMixin:
     def _initialize_empty_table(self):
         if self.excel_data is None:
             data = {0: Config.PARAMETER_NAMES[:Config.MIN_ROWS]}
-            self.excel_data = pd.DataFrame(data)
+            # dtype=object: у pandas ≥ 3.0 у числовий стовпець не можна записати рядок
+            self.excel_data = pd.DataFrame(data).astype(object)
             self.num_rows = Config.MIN_ROWS
             self.num_columns = 1
             self.data_columns = 0
@@ -60,7 +61,7 @@ class DataTabMixin:
             self._initialize_empty_table()
         
         new_col_idx = self.excel_data.shape[1]
-        self.excel_data[new_col_idx] = ['' for _ in range(self.num_rows)]
+        self.excel_data[new_col_idx] = pd.Series([''] * self.num_rows, dtype=object)
         
         self.num_columns = self.excel_data.shape[1]
         self.data_columns = self.num_columns - 1
@@ -314,16 +315,7 @@ class DataTabMixin:
         Перевіряє чи значення входить в допустимі межі для параметра
         Повертає True якщо OK, False якщо виходить за межі
         """
-        bounds = {
-            0: (0.001, 2, "λ1 (інтенсівність потоку подій МРЧ)"),
-            1: (0.001, 1, "s1 (тривалість первинної обробки)"),
-            2: (0.001, 1, "s2 (тривалість вторинної обробки подій МРЧ)"),
-            3: (0.001, 10000, "N (кількість подій для моделювання)"),
-            4: (0.001, 5, "Deadline 1"),
-            5: (0.001, 2, "λ2 (частота подій жорсткого)"),
-            6: (0.001, 2, "s2b (тривалість вторинної обробки подій жорсткого РЧ)"),
-            7: (0.001, 5, "Deadline 2")
-        }
+        bounds = Config.PARAM_BOUNDS
         
         if row_idx in bounds:
             min_val, max_val, param_name = bounds[row_idx]
@@ -388,8 +380,17 @@ class DataTabMixin:
             param_name = Config.PARAMETER_NAMES[i]
             values = [param_name] + list(self.excel_data.iloc[i, 1:self.num_columns].values)
             
-            str_values = [str(v).replace('.', ',') if pd.notna(v) and v != '' else '' for v in values]
+            str_values = [self._format_cell(v) for v in values]
             self.tree.insert('', 'end', values=str_values)
+
+    @staticmethod
+    def _format_cell(v):
+        """Число без зайвих нулів (10000 замість 10000,0), з десятковою комою."""
+        if v is None or (not isinstance(v, str) and pd.isna(v)) or v == '':
+            return ''
+        if isinstance(v, (int, float)):
+            return f"{v:.10g}".replace('.', ',')
+        return str(v).replace('.', ',')
 
     # ==================== МЕТОД ЗАВАНТАЖЕННЯ EXCEL ФАЙЛУ ====================
     def load_excel_file(self):
@@ -404,7 +405,8 @@ class DataTabMixin:
         try:
             self._validation_error_shown = False
             self._clear_previous_results()
-            self.excel_data = pd.read_excel(file_path, header=None)
+            # dtype=object: у pandas ≥ 3.0 у числовий стовпець не можна записати рядок
+            self.excel_data = pd.read_excel(file_path, header=None).astype(object)
             self.current_file_path = file_path
             
             self.num_rows = self.excel_data.shape[0]
@@ -489,16 +491,7 @@ class DataTabMixin:
                     float_value = float(value_str)
                     
                     # 🔹 ПРОВЕРКА ГРАНИЦ ПРИ ЗАГРУЗКЕ ФАЙЛА
-                    bounds = {
-                        0: (0.001, 2, "λ1"),
-                        1: (0.001, 1, "s1"),
-                        2: (0.001, 1, "s2"),
-                        3: (0.001, 10000, "N"),
-                        4: (0.001, 5, "Deadline 1"),
-                        5: (0.001, 2, "λ2"),
-                        6: (0.001, 2, "s2b"),
-                        7: (0.001, 5, "Deadline 2")
-                    }
+                    bounds = Config.PARAM_BOUNDS
 
                     if row in bounds:
                         min_val, max_val, param_name = bounds[row]
@@ -568,7 +561,7 @@ class DataTabMixin:
             elif i == 4:
                 self.d1_values = self._get_grouped_values(self.excel_data.iloc[i, 1:self.num_columns].values)
             
-            str_values = [str(v).replace('.', ',') if pd.notna(v) else '' for v in values]
+            str_values = [self._format_cell(v) for v in values]
             self.tree.insert('', 'end', values=str_values)
         
         empty_count = sum(1 for x in values if pd.isna(x) or x == "")
@@ -639,7 +632,8 @@ class DataTabMixin:
         params = {}
         try:
             for row, param_name in enumerate(Config.PARAM_NAMES):
-                value_str = str(self.excel_data.iloc[row, col]).strip()
+                raw = self.excel_data.iloc[row, col]
+                value_str = '' if pd.isna(raw) else str(raw).strip()
                 
                 if param_name == 'N':
                     params[param_name] = int(float(value_str.replace(',', '.'))) if value_str else 0

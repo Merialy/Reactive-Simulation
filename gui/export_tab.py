@@ -85,6 +85,10 @@ class ExportMixin:
                 self._log_export("Додавання результатів симуляції...")
                 results_df, stats = self._prepare_results_data()
                 export_data["Результати_симуляції"] = results_df
+                ci_df = self._prepare_ci_data()
+                if ci_df is not None:
+                    self._log_export("Додавання довірчих інтервалів...")
+                    export_data["Довірчі_інтервали_95"] = ci_df
             
             self._log_export("Додавання метаданих...")
             export_data["Метадані"] = self._prepare_metadata(file_name, export_folder)
@@ -151,6 +155,19 @@ class ExportMixin:
         
         return results_df, stats
 
+    # Напівширини 95 % довірчих інтервалів (якщо виконано R > 1 прогонів)
+    def _prepare_ci_data(self):
+        cis = getattr(self, 'simulation_ci', None)
+        if not cis or not any(cis):
+            return None
+        rows = []
+        for metric_idx, metric_label in enumerate(Config.METRIC_NAMES, 1):
+            row = {"Метрика": metric_label}
+            for scenario_idx, ci in enumerate(cis, 1):
+                row[f"Сценарій {scenario_idx}"] = self._format_export_value(ci[metric_idx]) if ci else ""
+            rows.append(row)
+        return pd.DataFrame(rows)
+
     # Форматує значення для експорту
     def _format_export_value(self, value):
         if isinstance(value, str) and value == "Помилка":
@@ -186,7 +203,9 @@ class ExportMixin:
             "Валідних_сценаріїв": [valid_count],
             "Порожніх_сценаріїв": [empty_count],
             "Кількість_метрик": [len(Config.METRIC_NAMES)],
-            "Версія_програми": ["1.0"],
+            "Версія_програми": [Config.APP_VERSION],
+            "Кількість_прогонів_R": [getattr(self, 'last_run_settings', {}).get('replications', 1)],
+            "Seed": [getattr(self, 'last_run_settings', {}).get('seed', '')],
             "Оригінальний_файл": [os.path.basename(self.current_file_path) if self.current_file_path else "Не вказано"],
             "Папка_збереження": [os.path.abspath(export_folder)]
         }
