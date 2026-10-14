@@ -1,0 +1,90 @@
+{
+  "name": "Боривітер: шторм переривань від UART (відмова)",
+  "platform": {
+    "name": "Боривітер 0.1/Falco",
+    "f_clk_mhz": 100,
+    "c_irq": 195,
+    "c_core": 300,
+    "t_irq_ms": null,
+    "t_core_ms": 0.0
+  },
+  "event_types": [
+    {
+      "name": "ADCS: датчики",
+      "cls": "HRT",
+      "rate": 0.5,
+      "deadline_ms": 1.0,
+      "wcet_ms": 0.5,
+      "wcet_cycles": null,
+      "arrival": null,
+      "phase_ms": 0.0
+    },
+    {
+      "name": "ADCS: закон керування",
+      "cls": "HRT",
+      "rate": 0.1,
+      "deadline_ms": 2.0,
+      "wcet_ms": 0.75,
+      "wcet_cycles": null,
+      "arrival": null,
+      "phase_ms": 1.0
+    },
+    {
+      "name": "Команди приводам",
+      "cls": "HRT",
+      "rate": 0.2,
+      "deadline_ms": 1.0,
+      "wcet_ms": 0.15,
+      "wcet_cycles": null,
+      "arrival": null,
+      "phase_ms": 0.6
+    },
+    {
+      "name": "Команди НКК (UART)",
+      "cls": "SRT",
+      "rate": 0.2,
+      "deadline_ms": 2.0,
+      "wcet_ms": 0.3,
+      "wcet_cycles": null,
+      "arrival": null,
+      "phase_ms": null
+    },
+    {
+      "name": "Моніторинг EPS",
+      "cls": "SRT",
+      "rate": 0.05,
+      "deadline_ms": 50.0,
+      "wcet_ms": 0.5,
+      "wcet_cycles": null,
+      "arrival": null,
+      "phase_ms": null
+    },
+    {
+      "name": "Телеметрія",
+      "cls": "SRT",
+      "rate": 0.01,
+      "deadline_ms": 20.0,
+      "wcet_ms": 2.0,
+      "wcet_cycles": null,
+      "arrival": null,
+      "phase_ms": null
+    }
+  ],
+  "N": 20000,
+  "warmup_fraction": 0.05,
+  "description": "Базовий сценарій «Боривітер» + відмова: з 20-ї по 25-ту секунду модельного часу лінія UART генерує хибні переривання (20 на мс), кожне вимагає 0,03 мс обробки на рівні МРЧ. Ілюстративні значення, не виміряні дані.",
+  "faults": [
+    {
+      "kind": "storm",
+      "start_ms": 20000,
+      "duration_ms": 5000,
+      "rate": 20,
+      "wcet_ms": 0.03,
+      "target": null,
+      "probability": 1.0,
+      "factor": 1.0,
+      "name": "Шторм переривань UART"
+    }
+  ],
+  "schema_version": 2
+}

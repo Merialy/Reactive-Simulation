@@ -174,8 +174,41 @@ python -m storage.cli show <id результату>
 
 ```
 docker compose up -d                       # MongoDB
-docker compose run --rm sim                # 27 тестів верифікації
+docker compose run --rm sim                # 33 тести верифікації
 docker compose run --rm sim python -m simulation.run_scenario scenarios/boryviter_adcs.json -R 5 --save
 ```
 
 Графічна програма запускається звичайно: `python main.py`.
+
+---
+
+⚠ Сценарії відмов (версія 3.2)
+
+У JSON-сценарій можна додати список `faults` – відмови, що діють на заданому інтервалі модельного часу:
+
+* **шторм переривань** (`"kind": "storm"`): додаткове джерело хибних переривань з інтенсивністю `rate`
+  (подій/мс); кожне займає первинний обробник на T_IRQ і, якщо задано `wcet_ms`, ще вторинну обробку
+  на рівні МРЧ. Хибні переривання не входять у статистику, але забирають час процесора;
+* **перевищення WCET** (`"kind": "overrun"`): подія типу `target` (або будь-якого типу), що надійшла під час
+  відмови, з імовірністю `probability` обробляється у `factor` разів довше.
+
+```json
+"faults": [
+  {"kind": "storm", "start_ms": 20000, "duration_ms": 5000, "rate": 20, "wcet_ms": 0.03},
+  {"kind": "overrun", "start_ms": 20000, "duration_ms": 20000, "target": "ADCS: датчики",
+   "probability": 0.3, "factor": 2.5}
+]
+```
+
+Крім звичайних показників, для кожного типу подій виводяться показники **під час відмови**
+(кількість подій, середній і максимальний час реакції, ймовірність порушення дедлайну).
+Випадкові числа відмов беруться з окремого генератора, тому з тим самим seed основні потоки подій
+однакові з відмовою і без неї – різниця показників зумовлена саме відмовою.
+
+Готові приклади:
+
+```
+python -m simulation.run_scenario scenarios/boryviter_fault_storm.json -R 5
+python -m simulation.run_scenario scenarios/boryviter_fault_wcet.json -R 5
+```
+

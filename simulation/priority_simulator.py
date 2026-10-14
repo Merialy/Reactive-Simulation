@@ -1,6 +1,6 @@
 import numpy as np # type: ignore
 from collections import deque
-from typing import List, Tuple, Dict
+from typing import Dict
 
 # ======================================
 # ОСНОВНИЙ КЛАС СИМУЛЯЦІЇ
@@ -26,33 +26,6 @@ class PriorityQueueSimulation:
             початкове значення: Випадкове початкове значення для відтворюваності. Якщо немає, результати будуть відрізнятися після кожного запуску.
         """
         self.rng = np.random.default_rng(seed)
-    
-    def simulate_multiple_systems(self, parameters: List[Dict]) -> List[Dict]:
-        """
-        Запуск моделювання для кількох наборів параметрів.
-
-        Аргументи:
-            параметри: Список словників з ключами: lambda1, s1, s2, N, D1, lambda2, s2b, D2
-
-        Повернення:
-            Список словників результатів
-        """
-        all_results = []
-        
-        for params in parameters:
-            results = self.run_simulation_priority2_full(
-                lambda1=params['lambda1'],
-                s1=params['s1'],
-                s2=params['s2'],
-                N=params['N'],
-                D1=params['D1'],
-                lambda2=params['lambda2'],
-                s2b=params['s2b'],
-                D2=params['D2']
-            )
-            all_results.append(results)
-        
-        return all_results
     
     def run_simulation_priority2_full(self, lambda1: float, s1: float, s2: float,
                                      N: int, D1: float, lambda2: float,
@@ -246,48 +219,6 @@ class PriorityQueueSimulation:
             ((st == 2) & (sec == 2)).astype(float), t_start, t_end))
         return results
 
-    def _schedule_next(self, t, primary_q, secondary_q1, secondary_q2,
-                      start_prim1, start_prim2, start_sec1, start_sec2,
-                      rem_sec1, rem_sec2, s1, s2, s2b):
-        """Запланувати наступне обслуговування після завершення поточного."""
-        state = "idle"
-        cur_prim_type = 0
-        cur_prim_idx = 0
-        cur_sec_type = 0
-        cur_sec_idx = 0
-        next_prim_done = 1e30
-        next_sec_done = 1e30
-        
-        if len(primary_q) > 0:
-            item = primary_q.popleft()
-            cur_prim_type, cur_prim_idx = item
-            if cur_prim_type == 1:
-                start_prim1[cur_prim_idx] = t
-            else:
-                start_prim2[cur_prim_idx] = t
-            next_prim_done = t + s1
-            state = "primary"
-        elif len(secondary_q2) > 0:
-            item = secondary_q2.popleft()
-            cur_sec_type, cur_sec_idx = item
-            if start_sec2[cur_sec_idx] == 0:
-                start_sec2[cur_sec_idx] = t
-            rem_t2 = rem_sec2[cur_sec_idx] if rem_sec2[cur_sec_idx] > 0 else s2b
-            rem_sec2[cur_sec_idx] = 0
-            next_sec_done = t + rem_t2
-            state = "secondary"
-        elif len(secondary_q1) > 0:
-            item = secondary_q1.popleft()
-            cur_sec_type, cur_sec_idx = item
-            if start_sec1[cur_sec_idx] == 0:
-                start_sec1[cur_sec_idx] = t
-            rem_t1 = rem_sec1[cur_sec_idx] if rem_sec1[cur_sec_idx] > 0 else s2
-            rem_sec1[cur_sec_idx] = 0
-            next_sec_done = t + rem_t1
-            state = "secondary"
-        
-        return state, cur_prim_type, cur_prim_idx, cur_sec_type, cur_sec_idx, next_prim_done, next_sec_done
-    
     def _calculate_job_statistics(self, i_start, i_end, cnt2, t_start, t_end,
                                   arr1, arr2, start_prim1, start_prim2, end_prim1, end_prim2,
                                   start_sec1, start_sec2, end_sec1, end_sec2, D1, D2):

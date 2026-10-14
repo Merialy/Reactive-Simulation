@@ -179,4 +179,9 @@ def run_scenario_replications(scenario, replications: int = 5, base_seed: int = 
         for key in runs[0]['per_type'][name]:
             s = summarize([r['per_type'][name][key] for r in runs])
             per_type[name][key] = {'mean': s['mean'], 'ci': s['ci']}
-    return {'classic': classic, 'per_type': per_type, 'U': runs[0]['U'], 'runs': runs}
+    out = {'classic': classic, 'per_type': per_type, 'U': runs[0]['U'], 'runs': runs}
+    if 'faults' in runs[0]:
+        out['faults'] = {key: {'mean': s['mean'], 'ci': s['ci']}
+                         for key in runs[0]['faults']
+                         for s in [summarize([r['faults'][key] for r in runs])]}
+    return out

@@ -2,6 +2,7 @@
 Запуск сценарію з JSON-файлу з командного рядка.
 
     python -m simulation.run_scenario scenarios/boryviter_adcs.json -R 5 --seed 42
+    python -m simulation.run_scenario scenarios/boryviter_fault_storm.json -R 5   (сценарій з відмовою)
 
 Виводить показники для кожного типу подій (середнє ± 95 % довірчий інтервал).
 """
@@ -21,6 +22,13 @@ ROWS = [
     ("sojourn_max", "Макс. час реакції, мс", "{:.4g}"),
     ("p_miss", "Ймовірність порушення дедлайну", "{:.4g}"),
     ("utilization_secondary", "Завантаження вторинним обробником", "{:.4g}"),
+]
+
+FAULT_ROWS = [
+    ("count_fault", "ПІД ЧАС ВІДМОВИ: кількість подій", "{:.0f}"),
+    ("sojourn_mean_fault", "  сер. час реакції, мс", "{:.4g}"),
+    ("sojourn_max_fault", "  макс. час реакції, мс", "{:.4g}"),
+    ("p_miss_fault", "  ймовірність порушення дедлайну", "{:.4g}"),
 ]
 
 
@@ -60,6 +68,23 @@ def main(argv=None):
                 cell += f" ± {v['ci']:.2g}"
             line += f"{cell:>24}"
         print(line)
+    if sc.faults:
+        print("\nВідмови:")
+        for f in sc.faults:
+            print("  •", f.label())
+        print(f"Завантаження під час відмов U = {sc.utilization_during_faults():.3f}")
+        for key, label, fmt in FAULT_ROWS:
+            line = f"{label:<{w0}}"
+            for n in names:
+                v = res['per_type'][n][key]
+                cell = fmt.format(v['mean'])
+                if args.replications > 1 and key != "count_fault":
+                    cell += f" ± {v['ci']:.2g}"
+                line += f"{cell:>24}"
+            print(line)
+        fs = res.get('faults', {})
+        print(f"Хибних переривань: {fs.get('storm_events', {}).get('mean', 0):.0f}; "
+              f"подій з перевищенням WCET: {fs.get('overrun_events', {}).get('mean', 0):.0f} (у середньому за прогін)")
     print(f"\nR = {args.replications}, seed = {args.seed}")
 
     if args.save:

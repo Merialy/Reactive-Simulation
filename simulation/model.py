@@ -17,6 +17,8 @@ import json
 
 HRT, SRT = "HRT", "SRT"
 PERIODIC, POISSON = "periodic", "poisson"
+STORM, OVERRUN = "storm", "overrun"
+FAULT_KINDS = (STORM, OVERRUN)
 
 
 def cycles_to_ms(cycles: float, f_clk_mhz: float) -> float:
@@ -74,6 +76,46 @@ class EventType:
 
 
 @dataclass
+class Fault:
+    """
+    Сценарій відмови (версія 3.2).
+
+    kind = "storm"   – шторм переривань: на інтервалі [start_ms; start_ms + duration_ms]
+                       з'являється додаткове джерело хибних переривань (пуассонівський потік
+                       інтенсивністю rate, подій/мс). Кожне таке переривання займає первинний
+                       обробник на T_IRQ і, якщо wcet_ms > 0, ще й вторинну обробку класу МРЧ.
+                       Хибні переривання не входять у статистику, але забирають час процесора.
+    kind = "overrun" – перевищення WCET: подія типу target (або будь-якого типу, якщо target
+                       не задано), що надійшла на інтервалі відмови, з імовірністю probability
+                       обробляється у factor разів довше за WCET.
+    duration_ms = None означає «до кінця моделювання».
+    """
+    kind: str
+    start_ms: float = 0.0
+    duration_ms: Optional[float] = None
+    rate: float = 0.0                       # storm: інтенсивність хибних переривань, подій/мс
+    wcet_ms: float = 0.0                    # storm: вторинна обробка хибного переривання, мс
+    target: Optional[str] = None            # overrun: назва типу подій (None – усі типи)
+    probability: float = 1.0                # overrun: імовірність перевищення для однієї події
+    factor: float = 1.0                     # overrun: у скільки разів зростає час обробки
+    name: str = ""
+
+    def end_ms(self) -> float:
+        return float("inf") if self.duration_ms is None else self.start_ms + self.duration_ms
+
+    def active(self, t: float) -> bool:
+        return self.start_ms <= t <= self.end_ms()
+
+    def label(self) -> str:
+        if self.name:
+            return self.name
+        when = f"{self.start_ms:g}–{self.end_ms():g} мс" if self.duration_ms is not None else f"від {self.start_ms:g} мс"
+        if self.kind == STORM:
+            return f"Шторм переривань {self.rate:g} 1/мс ({when})"
+        return f"Перевищення WCET ×{self.factor:g}, p = {self.probability:g}, {self.target or 'усі типи'} ({when})"
+
+
+@dataclass
 class Scenario:
     name: str
     platform: Platform
@@ -81,6 +123,7 @@ class Scenario:
     N: int = 10000                          # кількість подій МРЧ (або всіх подій, якщо МРЧ немає)
     warmup_fraction: float = 0.05           # частка подій, що відкидається на початку і в кінці
     description: str = ""
+    faults: List[Fault] = field(default_factory=list)   # сценарії відмов (версія 3.2)
 
     # ---------- допоміжні величини ----------
     def s1(self) -> float:
@@ -90,6 +133,19 @@ class Scenario:
         """Формула (2.16): U = Σ λ_k (T_IRQ + T_Core + T_k)."""
         s1 = self.s1()
         return sum(et.rate * (s1 + et.service_ms(self.platform)) for et in self.event_types)
+
+    def utilization_during_faults(self) -> float:
+        """Завантаження на інтервалі, коли діють УСІ відмови одночасно (оцінка зверху)."""
+        s1 = self.s1()
+        u = self.utilization()
+        for f in self.faults:
+            if f.kind == STORM:
+                u += f.rate * (s1 + f.wcet_ms)
+            elif f.kind == OVERRUN:
+                for et in self.event_types:
+                    if f.target in (None, et.name):
+                        u += et.rate * f.probability * (f.factor - 1) * et.service_ms(self.platform)
+        return u
 
     # ---------- перевірка (таблиця 2.3) ----------
     def check(self) -> Tuple[List[str], List[str]]:
@@ -121,6 +177,19 @@ class Scenario:
                 errors.append(str(e))
         if self.N < 1:
             errors.append("N має бути не меншою за 1.")
+        for f in self.faults:
+            if f.kind not in FAULT_KINDS:
+                errors.append(f"Відмова «{f.label()}»: тип має бути storm або overrun.")
+                continue
+            if f.start_ms < 0 or (f.duration_ms is not None and f.duration_ms <= 0):
+                errors.append(f"Відмова «{f.label()}»: некоректний інтервал дії.")
+            if f.kind == STORM and (f.rate <= 0 or f.wcet_ms < 0):
+                errors.append(f"Відмова «{f.label()}»: інтенсивність шторму має бути більшою за 0.")
+            if f.kind == OVERRUN:
+                if f.factor < 1 or not (0 < f.probability <= 1):
+                    errors.append(f"Відмова «{f.label()}»: потрібно factor ≥ 1 і 0 < probability ≤ 1.")
+                if f.target is not None and f.target not in names:
+                    errors.append(f"Відмова «{f.label()}»: тип подій «{f.target}» не знайдено.")
         if errors:
             return errors, warnings
 
@@ -137,6 +206,11 @@ class Scenario:
             if et.arrival_law() == PERIODIC and need >= 1.0 / et.rate:
                 warnings.append(f"Тип «{et.name}»: обробка ({need:.4g} мс) не встигає до наступної події "
                                 f"(період {1.0 / et.rate:.4g} мс).")
+        if self.faults:
+            uf = self.utilization_during_faults()
+            if uf >= 1:
+                warnings.append(f"Під час відмов завантаження сягає U = {uf:.3f} ≥ 1: процесор перевантажений, "
+                                "черги зростають, поки діє відмова.")
         if self.N < 1000:
             warnings.append(f"N = {self.N} < 1000: оцінки показників можуть бути нестійкими.")
         return errors, warnings
@@ -144,6 +218,8 @@ class Scenario:
     # ---------- JSON ----------
     def to_dict(self) -> Dict:
         d = asdict(self)
+        if not d.get("faults"):
+            d.pop("faults", None)            # сценарії без відмов – у форматі версії 2 (той самий ключ у БД)
         d["schema_version"] = 2
         return d
 
@@ -156,7 +232,8 @@ class Scenario:
         ets = [EventType(**e) for e in d["event_types"]]
         return Scenario(name=d.get("name", "Сценарій"), platform=p, event_types=ets,
                         N=int(d.get("N", 10000)), warmup_fraction=d.get("warmup_fraction", 0.05),
-                        description=d.get("description", ""))
+                        description=d.get("description", ""),
+                        faults=[Fault(**f) for f in d.get("faults", []) or []])
 
     @staticmethod
     def from_json(text: str) -> "Scenario":

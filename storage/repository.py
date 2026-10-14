@@ -120,6 +120,7 @@ def result_document(scenario, result: Dict, settings: Dict, scenario_id: Optiona
         "per_type": per_type,
         "tags": list(tags or []),
         "note": note,
+        **({"fault_stats": result["faults"]} if result.get("faults") else {}),
     }
 
 
