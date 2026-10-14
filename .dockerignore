@@ -1,0 +1,14 @@
+.git
+.gitignore
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+data/
+Експорт_симуляції/
+Графіки_симуляції/
+Excel file/
+*.xlsx
+*.xlsm

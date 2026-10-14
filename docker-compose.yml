@@ -1,0 +1,36 @@
+# Програмний комплекс «Симулятор моделі реактивності» – база даних і середовище експериментів.
+#
+#   docker compose up -d                       – запустити MongoDB
+#   docker compose stop                        – зупинити MongoDB
+#   docker compose run --rm sim                – тести верифікації в контейнері
+#   docker compose run --rm sim python -m simulation.run_scenario scenarios/boryviter_adcs.json -R 5 --save
+#   docker compose build sim                   – перезібрати образ після зміни коду
+#
+# Контейнер і том мають ті самі імена, що й при ручному запуску:
+#   docker run -d --name my-mongodb -p 127.0.0.1:27017:27017 -v mongo-data:/data/db mongo:7
+# Якщо контейнер уже створено вручну, перед `docker compose up -d` виконайте
+# `docker rm -f my-mongodb` (дані в томі mongo-data при цьому зберігаються).
+services:
+  mongodb:
+    image: mongo:7
+    container_name: my-mongodb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"   # доступ лише з цього комп'ютера
+    volumes:
+      - mongo-data:/data/db
+
+  sim:
+    build: .
+    image: reactive-simulation:latest
+    profiles: ["tools"]           # не запускається командою `docker compose up`
+    depends_on:
+      - mongodb
+    environment:
+      REACTIVE_MONGO_URI: mongodb://mongodb:27017
+    volumes:
+      - ./scenarios:/app/scenarios   # сценарії можна редагувати без перезбирання образу
+
+volumes:
+  mongo-data:
+    name: mongo-data

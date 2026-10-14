@@ -37,6 +37,8 @@ class ExportMixin:
                   command=self.export_data).pack(side='left', padx=5)
         ttk.Button(button_frame, text="Експортувати графіки", 
                   command=self.export_all_plots).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Зберегти в базу даних",
+                  command=self.save_to_database).pack(side='left', padx=5)
         
         log_frame = ttk.LabelFrame(main_frame, text="Лог експорту", padding=10)
         log_frame.pack(fill='both', expand=True)
@@ -301,6 +303,44 @@ class ExportMixin:
                             continue
                 except:
                     pass   
+
+    # Збереження сценаріїв і результатів у базу даних (MongoDB або JSON-файли)
+    def save_to_database(self):
+        if not self.simulation_results:
+            messagebox.showwarning("Попередження", "Спочатку виконайте симуляцію!")
+            return
+        try:
+            from storage import get_repository
+            from storage.repository import last_storage_warning
+            from simulation.model import Scenario
+            repo = get_repository()
+            if last_storage_warning():
+                self._log_export("⚠ " + last_storage_warning())
+            self._log_export(f"Сховище: {repo.describe()}")
+
+            settings = dict(getattr(self, 'last_run_settings', {}) or {})
+            source = os.path.basename(self.current_file_path) if self.current_file_path else "таблиця"
+            settings["source_file"] = source
+            cis = getattr(self, 'simulation_ci', None) or [None] * len(self.simulation_results)
+            new_count = same_count = 0
+            for idx, (params, mean) in enumerate(zip(self.excel_parameters, self.simulation_results), 1):
+                if params is None or mean is None or any(isinstance(v, str) for v in mean.values()):
+                    continue
+                sc = Scenario.from_legacy(params, name=f"{source} – сценарій {idx}")
+                sid = repo.save_scenario(sc)
+                _, is_new = repo.save_result_checked(sc, {'mean': mean, 'ci': cis[idx - 1] or {}}, settings,
+                                                     scenario_id=sid, tags=[source])
+                if is_new:
+                    new_count += 1
+                else:
+                    same_count += 1
+            # Без спливаючого вікна: підсумок лише в журналі експорту
+            self._log_export(f"✅ Збережено нових результатів: {new_count}")
+            if same_count:
+                self._log_export(f"ℹ Вже були в базі (ті самі параметри, R і seed) – не дублювались: {same_count}")
+        except Exception as e:
+            self._log_export(f"❌ Помилка збереження в базу: {e}")
+            messagebox.showerror("Помилка", f"Не вдалося зберегти в базу даних: {e}")
 
     # Логування експорту
     def _log_export(self, message):

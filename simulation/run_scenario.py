@@ -29,6 +29,8 @@ def main(argv=None):
     ap.add_argument("path")
     ap.add_argument("-R", "--replications", type=int, default=5)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--save", action="store_true", help="зберегти сценарій і результат у базу (MongoDB або JSON)")
+    ap.add_argument("--tag", action="append", default=[], help="мітка результату, наприклад «серія Е1»")
     args = ap.parse_args(argv)
 
     sc = Scenario.load(args.path)
@@ -59,6 +61,17 @@ def main(argv=None):
             line += f"{cell:>24}"
         print(line)
     print(f"\nR = {args.replications}, seed = {args.seed}")
+
+    if args.save:
+        from storage import get_repository
+        from storage.repository import last_storage_warning
+        repo = get_repository()
+        if last_storage_warning():
+            print("⚠", last_storage_warning())
+        sid = repo.save_scenario(sc)
+        rid = repo.save_result(sc, res, {"replications": args.replications, "seed": args.seed},
+                               scenario_id=sid, tags=args.tag)
+        print(f"Збережено в {repo.describe()}: сценарій {sid}, результат {rid}")
     return 0
 
 
