@@ -41,7 +41,7 @@ def main(argv=None):
     ap.add_argument("--tag", action="append", default=[], help="мітка результату, наприклад «серія Е1»")
     args = ap.parse_args(argv)
 
-    sc = Scenario.load(args.path)
+    sc = Scenario.load(args.path).without_disabled_faults()
     errors, warnings = sc.check()
     print(f"Сценарій: {sc.name}")
     print(f"Платформа: {sc.platform.name}; T_IRQ = {sc.s1():.4g} мс; T_Core = {sc.platform.core_ms():.4g} мс")
@@ -68,9 +68,9 @@ def main(argv=None):
                 cell += f" ± {v['ci']:.2g}"
             line += f"{cell:>24}"
         print(line)
-    if sc.faults:
+    if sc.active_faults():
         print("\nВідмови:")
-        for f in sc.faults:
+        for f in sc.active_faults():
             print("  •", f.label())
         print(f"Завантаження під час відмов U = {sc.utilization_during_faults():.3f}")
         for key, label, fmt in FAULT_ROWS:

@@ -5,3 +5,5 @@ __pycache__/
 venv/
 Графіки_симуляції/
 data/
+logs/
+docs/screens/

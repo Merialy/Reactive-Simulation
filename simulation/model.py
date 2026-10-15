@@ -99,6 +99,7 @@ class Fault:
     probability: float = 1.0                # overrun: імовірність перевищення для однієї події
     factor: float = 1.0                     # overrun: у скільки разів зростає час обробки
     name: str = ""
+    enabled: bool = True                    # вимкнена відмова зберігається у файлі, але не діє
 
     def end_ms(self) -> float:
         return float("inf") if self.duration_ms is None else self.start_ms + self.duration_ms
@@ -134,11 +135,21 @@ class Scenario:
         s1 = self.s1()
         return sum(et.rate * (s1 + et.service_ms(self.platform)) for et in self.event_types)
 
+    def active_faults(self) -> List["Fault"]:
+        return [f for f in self.faults if f.enabled]
+
+    def without_disabled_faults(self) -> "Scenario":
+        """Копія сценарію лише з увімкненими відмовами (саме вона моделюється і зберігається в БД)."""
+        import copy
+        sc = copy.deepcopy(self)
+        sc.faults = sc.active_faults()
+        return sc
+
     def utilization_during_faults(self) -> float:
         """Завантаження на інтервалі, коли діють УСІ відмови одночасно (оцінка зверху)."""
         s1 = self.s1()
         u = self.utilization()
-        for f in self.faults:
+        for f in self.active_faults():
             if f.kind == STORM:
                 u += f.rate * (s1 + f.wcet_ms)
             elif f.kind == OVERRUN:
@@ -206,7 +217,7 @@ class Scenario:
             if et.arrival_law() == PERIODIC and need >= 1.0 / et.rate:
                 warnings.append(f"Тип «{et.name}»: обробка ({need:.4g} мс) не встигає до наступної події "
                                 f"(період {1.0 / et.rate:.4g} мс).")
-        if self.faults:
+        if self.active_faults():
             uf = self.utilization_during_faults()
             if uf >= 1:
                 warnings.append(f"Під час відмов завантаження сягає U = {uf:.3f} ≥ 1: процесор перевантажений, "

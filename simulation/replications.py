@@ -144,14 +144,15 @@ def _run_scenario_one(task):
 
 
 def run_scenario_replications(scenario, replications: int = 5, base_seed: int = 42,
-                              workers: Optional[int] = None) -> Dict:
+                              workers: Optional[int] = None, progress_cb=None) -> Dict:
     """
     R прогонів сценарію з кількома типами подій.
 
-    Повертає {'classic': {'mean', 'ci'}, 'per_type': {тип: {показник: {'mean', 'ci'}}}, 'U', 'runs'}.
+    Повертає {'classic': {'mean', 'ci'}, 'per_type': {тип: {показник: {'mean', 'ci'}}}, 'U', 'runs'}
+    (і 'faults', якщо в сценарії є відмови). progress_cb(done, total) – після кожного прогону.
     """
     import os
-    from concurrent.futures import ProcessPoolExecutor
+    from concurrent.futures import ProcessPoolExecutor, as_completed
 
     replications = max(1, int(replications))
     d = scenario.to_dict()
@@ -162,12 +163,21 @@ def run_scenario_replications(scenario, replications: int = 5, base_seed: int = 
     runs = None
     if workers > 1:
         try:
+            runs = [None] * replications
             with ProcessPoolExecutor(max_workers=workers) as ex:
-                runs = list(ex.map(_run_scenario_one, tasks))
+                futs = {ex.submit(_run_scenario_one, t): r for r, t in enumerate(tasks)}
+                for done, fut in enumerate(as_completed(futs), 1):
+                    runs[futs[fut]] = fut.result()
+                    if progress_cb:
+                        progress_cb(done, replications)
         except (OSError, RuntimeError, ImportError):
             runs = None
     if runs is None:
-        runs = [_run_scenario_one(t) for t in tasks]
+        runs = []
+        for done, t in enumerate(tasks, 1):
+            runs.append(_run_scenario_one(t))
+            if progress_cb:
+                progress_cb(done, replications)
 
     classic = {'mean': {}, 'ci': {}}
     for m in METRIC_IDS:

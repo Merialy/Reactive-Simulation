@@ -39,12 +39,14 @@ class EventSimulation:
         self.fault_rng = np.random.default_rng(None if seed is None else [int(seed), 2026])
 
     # ------------------------------------------------------------------
-    def run(self, sc: Scenario) -> Dict:
+    def run(self, sc: Scenario, keep_events: bool = False) -> Dict:
         """
         Повертає словник:
           'classic'  – 18 показників у форматі версії 1.x (агреговано за класами МРЧ / ЖРЧ);
           'per_type' – {назва типу: {показник: значення}};
-          'U'        – теоретичне завантаження (2.16).
+          'U'        – теоретичне завантаження (2.16);
+          'events'   – (лише якщо keep_events=True) моменти надходження, тип і час реакції
+                       кожної події – для графіка «час реакції в часі».
         """
         errors, _ = sc.check()
         if errors:
@@ -58,8 +60,9 @@ class EventSimulation:
         N = int(sc.N)
 
         # ---- Відмови ----
-        storms = [f for f in sc.faults if f.kind == STORM]
-        overruns = [f for f in sc.faults if f.kind == OVERRUN]
+        active = sc.active_faults()
+        storms = [f for f in active if f.kind == STORM]
+        overruns = [f for f in active if f.kind == OVERRUN]
         S = len(storms)
         # хибні переривання шторму j мають внутрішній номер типу K + j
         service = service + [f.wcet_ms for f in storms]
@@ -233,8 +236,14 @@ class EventSimulation:
         J = np.asarray(journal, dtype=float).reshape(-1, 6)
         out = self._statistics(sc, types, is_hrt, ref_seq, type_seq, ev_type, arr, sp, ep, ss, es,
                                J[:, 0], J[:, 1], J[:, 2], J[:, 3], J[:, 4], J[:, 5].astype(int))
-        if sc.faults:
+        if active:
             out['faults'] = {'storm_events': float(n_storm), 'overrun_events': float(n_over)}
+        if keep_events:
+            typ = np.asarray(ev_type, dtype=int)
+            a = np.asarray(arr, dtype=float)
+            e = np.asarray(es, dtype=float)
+            m = (typ < K) & (e > 0)                     # лише реальні типи і завершені події
+            out['events'] = {'type': typ[m], 'arrival': a[m], 'sojourn': (e - a)[m]}
         return out
 
     # ------------------------------------------------------------------
@@ -321,7 +330,7 @@ class EventSimulation:
             if n == 0:
                 per_type[et.name] = {key: 0.0 for key in METRICS_PER_TYPE}
                 per_type[et.name]['count'] = 0
-                if sc.faults:
+                if sc.active_faults():
                     per_type[et.name].update({key: 0.0 for key in METRICS_FAULT})
                 continue
             so = soj[m]
@@ -336,7 +345,7 @@ class EventSimulation:
                 'p_miss': float(late[m].mean()),
                 'utilization_secondary': f(((st == 2) & (sec == k)).astype(float)),
             }
-            if sc.faults:
+            if sc.active_faults():
                 per_type[et.name].update(self._fault_metrics(sc, k, typ, arr_a, es_a, soj, late))
         return {'classic': c, 'per_type': per_type, 'U': sc.utilization()}
 
@@ -346,7 +355,7 @@ class EventSimulation:
         """Показники типу k для подій, що надійшли, поки діяла хоча б одна відмова.
         Тут не відкидаються перші й останні 5 %: відмова – перехідний процес."""
         in_fault = np.zeros(len(arr_a), dtype=bool)
-        for f in sc.faults:
+        for f in sc.active_faults():
             in_fault |= (arr_a >= f.start_ms) & (arr_a <= f.end_ms())
         m = in_fault & (typ == k) & (es_a > 0)
         n = int(m.sum())
