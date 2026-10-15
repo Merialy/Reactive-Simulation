@@ -79,10 +79,10 @@ class ScenarioPage(QWidget):
         self.combo.setToolTip(tr("Готові сценарії з папки scenarios"))
         self.combo.activated.connect(self._on_combo)
         self.header.add_action(self.combo)
-        self.header.add_action(button(tr("Відкрити…"), slot=self.open_dialog))
-        self.header.add_action(button(tr("Зберегти як…"), slot=self.save_dialog))
-        self.header.add_action(button(tr("Новий"), slot=self.new_scenario))
-        self.run_btn = self.header.add_action(button(tr("▶  Запустити"), "Primary", slot=self._request_run))
+        self.header.add_action(button(tr("Відкрити…"), slot=self.open_dialog, icon="folder"))
+        self.header.add_action(button(tr("Зберегти як…"), slot=self.save_dialog, icon="save"))
+        self.header.add_action(button(tr("Новий"), slot=self.new_scenario, icon="new"))
+        self.run_btn = self.header.add_action(button(tr("Запустити"), "Primary", slot=self._request_run, icon="play"))
         outer.addWidget(self.header)
 
         self.banner = Banner()
@@ -90,8 +90,8 @@ class ScenarioPage(QWidget):
         self.howto = Banner()
         self.howto.show_message(
             tr("<b>Як користуватися:</b> 1) угорі праворуч виберіть готовий сценарій (або «Новий»); "
-            "2) за потреби змініть числа в таблиці «Типи подій» і додайте відмову кнопкою «+ Шторм переривань» "
-            "або «+ Перевищення WCET»; 3) натисніть «Запустити» – відкриються «Результати», далі «Графіки». "
+            "2) за потреби змініть числа в таблиці «Типи подій» і додайте відмову кнопкою «Шторм переривань» "
+            "або «Перевищення WCET»; 3) натисніть «Запустити» – відкриються «Результати», далі «Графіки». "
             "Наведіть мишу на заголовок стовпця – з'явиться пояснення."), "info")
         self.howto.label.setTextFormat(Qt.TextFormat.RichText)
         outer.addWidget(self.howto)
@@ -163,8 +163,8 @@ class ScenarioPage(QWidget):
         # ---------------- Типи подій ----------------
         tcard = Card(tr("Типи подій"), tr("ЖРЧ обробляються з вищим пріоритетом (черга QH), МРЧ – з нижчим (QS). "
                                    "Будь-яке нове переривання перериває вторинну обробку."))
-        tcard.head_actions.addWidget(button(tr("+ Тип подій"), slot=self.add_type))
-        tcard.head_actions.addWidget(button(tr("Видалити"), "Danger", slot=self.remove_type))
+        tcard.head_actions.addWidget(button(tr("Тип подій"), slot=self.add_type, icon="plus"))
+        tcard.head_actions.addWidget(button(tr("Видалити"), "Danger", slot=self.remove_type, icon="trash"))
         self.types = QTableWidget(0, len(T_HEAD))
         self.types.setHorizontalHeaderLabels(T_HEAD)
         for i, tip in enumerate(T_TIPS):
@@ -184,9 +184,9 @@ class ScenarioPage(QWidget):
         fcard = Card(tr("Відмови"), tr("Що станеться, якщо щось піде не так. Шторм переривань – хибні переривання "
                                 "(наприклад, від несправної лінії). Перевищення WCET – обробка триває довше, "
                                 "ніж заплановано. Відмова діє лише на заданому інтервалі часу."))
-        fcard.head_actions.addWidget(button(tr("+ Шторм переривань"), slot=lambda: self.add_fault(STORM)))
-        fcard.head_actions.addWidget(button(tr("+ Перевищення WCET"), slot=lambda: self.add_fault(OVERRUN)))
-        fcard.head_actions.addWidget(button(tr("Видалити"), "Danger", slot=self.remove_fault))
+        fcard.head_actions.addWidget(button(tr("Шторм переривань"), slot=lambda: self.add_fault(STORM), icon="bolt"))
+        fcard.head_actions.addWidget(button(tr("Перевищення WCET"), slot=lambda: self.add_fault(OVERRUN), icon="history"))
+        fcard.head_actions.addWidget(button(tr("Видалити"), "Danger", slot=self.remove_fault, icon="trash"))
         self.faults = QTableWidget(0, len(F_HEAD))
         self.faults.setHorizontalHeaderLabels(F_HEAD)
         for i, tip in enumerate(F_TIPS):

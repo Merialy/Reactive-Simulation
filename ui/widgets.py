@@ -126,7 +126,29 @@ class Banner(QFrame):
         self.show()
 
 
-def button(text: str, kind: str = "", tooltip: str = "", slot=None) -> QPushButton:
+def _icon_color(kind: str) -> str:
+    return {"Primary": PALETTE.get("accent_text", "#fff"), "Danger": PALETTE.get("err", "#c00"),
+            "SideButton": PALETTE.get("side_text", "#ccc")}.get(kind, PALETTE.get("text", "#222"))
+
+
+def set_icon(b: QPushButton, name: str):
+    """Значок на кнопці; колір – за типом кнопки і поточною темою."""
+    from PySide6.QtCore import QSize
+    from ui.icons import icon
+    b.setProperty("icon_name", name)
+    b.setIcon(icon(name, _icon_color(b.objectName())))
+    b.setIconSize(QSize(17, 17))
+
+
+def refresh_icons(root: QWidget):
+    """Перефарбувати значки всіх кнопок після зміни теми."""
+    for b in root.findChildren(QPushButton):
+        name = b.property("icon_name")
+        if name:
+            set_icon(b, name)
+
+
+def button(text: str, kind: str = "", tooltip: str = "", slot=None, icon: str = "") -> QPushButton:
     b = QPushButton(text)
     if kind:
         b.setObjectName(kind)
@@ -134,6 +156,8 @@ def button(text: str, kind: str = "", tooltip: str = "", slot=None) -> QPushButt
         b.setToolTip(tooltip)
     if slot is not None:
         b.clicked.connect(slot)
+    if icon:
+        set_icon(b, icon)
     b.setCursor(Qt.CursorShape.PointingHandCursor)
     return b
 

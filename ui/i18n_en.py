@@ -697,8 +697,8 @@ EN = {
         "New feature (supervisor's request): not 2 event types as in Excel but any number, plus fault scenarios. This section is not needed for Excel files.",
     'Готові сценарії з папки scenarios':
         'Ready-made scenarios from the scenarios folder',
-    "<b>Як користуватися:</b> 1) угорі праворуч виберіть готовий сценарій (або «Новий»); 2) за потреби змініть числа в таблиці «Типи подій» і додайте відмову кнопкою «+ Шторм переривань» або «+ Перевищення WCET»; 3) натисніть «Запустити» – відкриються «Результати», далі «Графіки». Наведіть мишу на заголовок стовпця – з'явиться пояснення.":
-        '<b>How to use:</b> 1) at the top right choose a ready-made scenario (or “New”); 2) if needed, change the numbers in the “Event types” table and add a fault with “+ Interrupt storm” or “+ WCET overrun”; 3) press “Run” – “Results” opens, then “Charts”. Hover over a column header to see an explanation.',
+    "<b>Як користуватися:</b> 1) угорі праворуч виберіть готовий сценарій (або «Новий»); 2) за потреби змініть числа в таблиці «Типи подій» і додайте відмову кнопкою «Шторм переривань» або «Перевищення WCET»; 3) натисніть «Запустити» – відкриються «Результати», далі «Графіки». Наведіть мишу на заголовок стовпця – з'явиться пояснення.":
+        '<b>How to use:</b> 1) at the top right choose a ready-made scenario (or “New”); 2) if needed, change the numbers in the “Event types” table and add a fault with “Interrupt storm” or “WCET overrun”; 3) press “Run” – “Results” opens, then “Charts”. Hover over a column header to see an explanation.',
     'Загальне':
         'General',
     'Короткий опис: звідки взято значення':
@@ -891,4 +891,111 @@ EN = {
         'D2, ms (HRT deadline)',
     'λ2, мс⁻¹ (частота подій ЖРЧ; 0 – потоку ЖРЧ немає)':
         'λ2, ms⁻¹ (frequency of HRT events; 0 – no HRT flow)',
+    # ---- версія 4.3: стартовий екран, «Про програму», очищення таблиці ----
+    '1 сценарій':
+        '1 scenario',
+    '{n} сценаріїв':
+        '{n} scenarios',
+    'Переривання':
+        'Interrupts',
+    'ЖРЧ · періодично':
+        'HRT · periodic',
+    'МРЧ · випадково':
+        'SRT · random',
+    'первинна\nобробка, Q0':
+        'primary\nprocessing, Q0',
+    'QH · ЖРЧ – вищий пріоритет':
+        'QH · HRT – higher priority',
+    'QS · МРЧ – нижчий пріоритет':
+        'QS · SRT – lower priority',
+    'Процесор':
+        'Processor',
+    'вторинна\nобробка (WCET)':
+        'secondary\nprocessing (WCET)',
+    'нова подія перериває\nвторинну обробку':
+        'a new event preempts\nsecondary processing',
+    'Серія сценаріїв':
+        'Scenario series',
+    'Про програму':
+        'About',
+    'Типи подій і відмови':
+        'Event types & faults',
+    'Очистити таблицю':
+        'Clear table',
+    'Темна тема':
+        'Dark theme',
+    'Світла тема':
+        'Light theme',
+    'Початок':
+        'Home',
+    'Історія':
+        'History',
+    'Розрахунок показників реактивності бортового обчислювача: час реакції на переривання, черги, завантаження процесора і ймовірність порушення дедлайнів. Модель – три черги з пріоритетами і витісненням, імітаційне моделювання з довірчими інтервалами.':
+        'Calculation of on-board computer reactivity indicators: interrupt response time, queues, processor utilization and deadline miss probability. The model has three queues with priorities and preemption; discrete-event simulation with confidence intervals.',
+    'таблиця параметрів, 2 типи подій':
+        'parameter table, 2 event types',
+    'довільні типи подій, шторм, WCET':
+        'any event types, storm, WCET',
+    'збережені запуски, порівняння':
+        'saved runs, comparison',
+    'Схема моделі: події проходять первинну обробку (ISR), потім чекають у черзі свого класу; ЖРЧ обслуговуються раніше за МРЧ':
+        'Model diagram: events pass primary processing (ISR), then wait in the queue of their class; HRT events are served before SRT',
+    'Задайте параметри: відкрийте Excel-файл, готовий сценарій або введіть значення вручну.':
+        'Set the parameters: open an Excel file, a ready-made scenario, or enter values manually.',
+    'Ліворуч унизу оберіть кількість прогонів R (для звіту – 5 і більше) і seed.':
+        'At the bottom left choose the number of replications R (5 or more for a report) and the seed.',
+    'Натисніть «Запустити» – розрахунок іде у фоні на всіх ядрах процесора.':
+        'Press “Run” – the computation runs in the background on all processor cores.',
+    'Перегляньте «Результати» і «Графіки», збережіть звіт в Excel або результат у базу.':
+        'Review “Results” and “Charts”, export a report to Excel or save the result to the database.',
+    'Останні результати':
+        'Recent results',
+    'Подвійний клік – відкрити в історії':
+        'Double-click – open in history',
+    'Реактивність БО':
+        'OBC Reactivity',
+    'Магістерська робота, {y}':
+        "Master's thesis, {y}",
+    'Науковий керівник: {s}':
+        'Supervisor: {s}',
+    'Детальніше':
+        'Details',
+    'ХАІ':
+        'KhAI',
+    'Таблиця параметрів: кожен стовпець – окремий сценарій з двома типами подій (МРЧ і ЖРЧ). Відкрийте Excel-файл або введіть значення вручну.':
+        'Parameter table: each column is a separate scenario with two event types (SRT and HRT). Open an Excel file or enter values manually.',
+    'Запустити серію':
+        'Run series',
+    'Стовпець':
+        'Column',
+    'Повернути порожню таблицю, як під час запуску програми':
+        'Reset to an empty table, as at program start',
+    'Запустити':
+        'Run',
+    'Тип подій':
+        'Event type',
+    'Ще немає збережених результатів. Після запуску натисніть «Зберегти в базу даних».':
+        'No saved results yet. After a run press “Save to database”.',
+    'Версія {v} · модель {m}':
+        'Version {v} · model {m}',
+    'Програма розраховує показники реактивності бортового обчислювача методом імітаційного моделювання: час реакції на переривання, довжини черг, завантаження процесора і ймовірність порушення дедлайнів, у тому числі під час відмов.':
+        'The program calculates on-board computer reactivity indicators by discrete-event simulation: interrupt response time, queue lengths, processor utilization and deadline miss probability, including during faults.',
+    'Розробник':
+        'Developer',
+    'Заклад':
+        'Institution',
+    'Науковий керівник':
+        'Supervisor',
+    'Тема роботи':
+        'Thesis topic',
+    'Пошта':
+        'E-mail',
+    'Технології':
+        'Technologies',
+    'Дані розробника можна змінити у файлі config.py (розділ DEVELOPER).':
+        'Developer details can be changed in config.py (DEVELOPER section).',
+    'Очистити всю таблицю? Незбережені зміни буде втрачено.':
+        'Clear the whole table? Unsaved changes will be lost.',
+    'Таблицю очищено. Відкрийте Excel-файл або введіть значення вручну.':
+        'The table has been cleared. Open an Excel file or enter values manually.',
 }

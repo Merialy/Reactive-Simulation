@@ -53,11 +53,11 @@ class ResultsPage(QWidget):
         outer.setContentsMargins(28, 24, 28, 20)
         outer.setSpacing(14)
         self.header = PageHeader(tr("Результати"), tr("Ще немає результатів. Запустіть серію з Excel або сценарій."))
-        self.save_btn = self.header.add_action(button(tr("Зберегти в базу даних"), slot=self.save_to_db,
+        self.save_btn = self.header.add_action(button(tr("Зберегти в базу даних"), slot=self.save_to_db, icon="database",
                                                       tooltip=tr("Записати сценарії і результати в MongoDB. "
                                                               "Повторне збереження не створює дублікатів.")))
-        self.export_btn = self.header.add_action(button(tr("Експорт в Excel…"), slot=self.export_excel))
-        self.charts_btn = self.header.add_action(button(tr("Графіки →"), "Primary", slot=lambda: self.open_charts.emit()))
+        self.export_btn = self.header.add_action(button(tr("Експорт в Excel…"), slot=self.export_excel, icon="export"))
+        self.charts_btn = self.header.add_action(button(tr("Графіки"), "Primary", slot=lambda: self.open_charts.emit(), icon="chart"))
         outer.addWidget(self.header)
         self.banner = Banner()
         outer.addWidget(self.banner)

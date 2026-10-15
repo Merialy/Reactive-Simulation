@@ -2,10 +2,26 @@ import numpy as np # type: ignore
 
 # Конфігурація додатку
 class Config:
-    APP_VERSION = "4.0"
+    APP_VERSION = "4.3"
     # Версія МОДЕЛІ: змінюється лише тоді, коли змінюються числа результатів.
     # Входить у ключ запуску в базі даних (захист від дублікатів).
     MODEL_VERSION = "1"
+    # Дані про розробника (вікно «Про програму» і стартовий екран). Можна змінювати й доповнювати.
+    DEVELOPER = {
+        "name": "Ілля Комолов",
+        "name_en": "Illia Komolov",
+        "role": "магістрант",
+        "role_en": "Master's student",
+        "university": "Національний аерокосмічний університет «Харківський авіаційний інститут» (ХАІ)",
+        "university_en": "National Aerospace University “Kharkiv Aviation Institute” (KhAI)",
+        "supervisor": "Туркін І. Б.",
+        "supervisor_en": "I. B. Turkin",
+        "thesis": "Програмне забезпечення для розрахунку показників реактивності бортових обчислювачів "
+                  "аерокосмічних літальних апаратів",
+        "thesis_en": "Software for calculating the reactivity indicators of on-board computers of aerospace vehicles",
+        "email": "illua.komolov@gmail.com",
+        "year": "2026",
+    }
     DEFAULT_REPLICATIONS = 5   # кількість незалежних прогонів R (п. 2.6.5)
     DEFAULT_SEED = 42          # початкове значення генератора
     WORKERS = None             # кількість процесів для симуляції (None – автоматично)

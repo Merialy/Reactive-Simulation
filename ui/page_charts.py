@@ -67,7 +67,7 @@ class ChartsPage(QWidget):
         outer.setContentsMargins(28, 24, 28, 20)
         outer.setSpacing(14)
         self.header = PageHeader(tr("Графіки"), tr("Спочатку запустіть серію або сценарій."))
-        self.header.add_action(button(tr("Зберегти PNG…"), slot=self.save_png))
+        self.header.add_action(button(tr("Зберегти PNG…"), slot=self.save_png, icon="image"))
         outer.addWidget(self.header)
         self.banner = Banner()
         outer.addWidget(self.banner)

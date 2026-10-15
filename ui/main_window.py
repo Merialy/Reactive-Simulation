@@ -2,7 +2,7 @@
 Головне вікно програми (версія 4.0, інтерфейс на Qt / PySide6).
 
 Ліворуч – бічна панель з розділами і налаштуваннями запуску (R, seed, тема).
-Праворуч – сторінки: Початок, Дані Excel, Сценарій, Результати, Графіки, Історія.
+Праворуч – сторінки: Початок, Серія сценаріїв, Типи подій і відмови, Результати, Графіки, Історія.
 Симуляція виконується у фоновому потоці (Worker), тому вікно не «зависає».
 """
 import copy
@@ -10,7 +10,7 @@ import os
 import time
 from datetime import datetime
 
-from PySide6.QtCore import QSettings, Qt, QTimer
+from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtWidgets import (QApplication, QFrame, QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow,
                                QMessageBox, QProgressBar, QSpinBox, QStackedWidget, QVBoxLayout, QWidget)
 
@@ -25,61 +25,14 @@ from ui.page_excel import ExcelPage
 from ui.page_history import HistoryPage
 from ui.page_results import ResultsPage
 from ui.page_scenario import ScenarioPage
-from ui.widgets import Card, PageHeader, Worker, button, muted
+from ui.widgets import Card, PageHeader, Worker, button, muted, refresh_icons, set_icon
+from ui.icons import icon
+from ui.page_home import AboutDialog, HomePage
 from ui.i18n import is_en, tr, tr_msg
 
-NAV = [("home", tr("⌂   Початок")), ("excel", tr("▦   Дані Excel")), ("scenario", tr("◈   Типи подій і відмови")),
-       ("results", tr("≡   Результати")), ("charts", tr("◔   Графіки")), ("history", tr("↺   Історія"))]
-
-
-class HomePage(QWidget):
-    def __init__(self, go, parent=None):
-        super().__init__(parent)
-        self.setObjectName("Page")
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(28, 24, 28, 20)
-        lay.setSpacing(16)
-        lay.addWidget(PageHeader(tr("Симулятор моделі реактивності"),
-                                 tr("Розрахунок показників реактивності бортового обчислювача: час реакції на "
-                                 "переривання, черги, завантаження процесора і ймовірність порушення дедлайнів.")))
-        grid = QGridLayout()
-        grid.setSpacing(16)
-        cards = [
-            (tr("Серія сценаріїв з Excel"),
-             tr("Таблиця з 8 параметрами в кожному стовпці: два типи подій (МРЧ і ЖРЧ). Підходить для "
-             "дослідження впливу одного параметра – наприклад, s2 або D1."),
-             tr("Відкрити Excel-файл…"), lambda: go("excel", open_file=True)),
-            (tr("Сценарій з кількома типами подій"),
-             tr("Довільна кількість типів подій, параметри платформи в тактах і сценарії відмов: "
-             "шторм переривань і перевищення WCET."),
-             tr("Відкрити сценарій"), lambda: go("scenario")),
-            (tr("Історія результатів"),
-             tr("Збережені в MongoDB результати: пошук, повторне відкриття, порівняння кількох запусків."),
-             tr("Перейти до історії"), lambda: go("history")),
-        ]
-        for i, (title, text, btn, slot) in enumerate(cards):
-            c = Card(title)
-            c.add(muted(text))
-            c.lay.addStretch(1)
-            row = QHBoxLayout()
-            row.addWidget(button(btn, "Primary" if i == 0 else "", slot=slot))
-            row.addStretch(1)
-            c.add(row)
-            grid.addWidget(c, 0, i)
-        lay.addLayout(grid)
-
-        how = Card(tr("Як це працює"))
-        steps = (tr("1.  Задайте параметри: відкрийте Excel-файл або сценарій (чи створіть новий).\n"
-                 "2.  Ліворуч унизу задайте кількість прогонів R і seed. Кожен прогін – окрема імітація з "
-                 "seed, seed + 1, …; результат – середнє і 95 % довірчий інтервал.\n"
-                 "3.  Натисніть «Запустити». Розрахунок іде у фоні на всіх ядрах процесора.\n"
-                 "4.  Перегляньте «Результати» і «Графіки», збережіть звіт в Excel або результат у базу даних.\n"
-                 "5.  Повторне збереження тих самих даних не створює дублікатів."))
-        how.add(muted(steps))
-        lay.addWidget(how)
-        self.storage = muted("", hint=True)
-        lay.addWidget(self.storage)
-        lay.addStretch(1)
+NAV = [("home", tr("Початок"), "home"), ("excel", tr("Серія сценаріїв"), "table"),
+       ("scenario", tr("Типи подій і відмови"), "layers"), ("results", tr("Результати"), "results"),
+       ("charts", tr("Графіки"), "chart"), ("history", tr("Історія"), "history")]
 
 
 class MainWindow(QMainWindow):
@@ -119,8 +72,9 @@ class MainWindow(QMainWindow):
         sl.addSpacing(18)
         self.nav = QListWidget()
         self.nav.setObjectName("Nav")
-        for key, label in NAV:
-            it = QListWidgetItem(label)
+        self.nav.setIconSize(QSize(18, 18))
+        for key, label, ic in NAV:
+            it = QListWidgetItem("  " + label)
             it.setData(Qt.ItemDataRole.UserRole, key)
             self.nav.addItem(it)
         self.nav.currentRowChanged.connect(self._on_nav)
@@ -149,16 +103,18 @@ class MainWindow(QMainWindow):
         sl.addSpacing(6)
         self.theme_btn = button("", "SideButton", slot=self.toggle_theme)
         sl.addWidget(self.theme_btn)
-        self.lang_btn = button("🌐  English" if not is_en() else "🌐  Українська", "SideButton",
-                               slot=self.toggle_language)
+        self.lang_btn = button("English" if not is_en() else "Українська", "SideButton",
+                               slot=self.toggle_language, icon="globe")
         self.lang_btn.setToolTip(tr("Змінити мову інтерфейсу (потрібен перезапуск програми)"))
         sl.addWidget(self.lang_btn)
+        self.about_btn = button(tr("Про програму"), "SideButton", slot=self.show_about, icon="info")
+        sl.addWidget(self.about_btn)
         h.addWidget(side)
 
         # ---------------- Сторінки ----------------
         self.stack = QStackedWidget()
         h.addWidget(self.stack, 1)
-        self.home = HomePage(self.go)
+        self.home = HomePage(self.go, self.open_history, self.show_about)
         self.excel = ExcelPage()
         self.scenario = ScenarioPage()
         self.results = ResultsPage(self.repo)
@@ -166,7 +122,7 @@ class MainWindow(QMainWindow):
         self.history = HistoryPage(self.repo)
         self.pages = {"home": self.home, "excel": self.excel, "scenario": self.scenario,
                       "results": self.results, "charts": self.charts, "history": self.history}
-        for key, _ in NAV:
+        for key, *_ in NAV:
             self.stack.addWidget(self.pages[key])
 
         self.excel.run_requested.connect(self.run_excel)
@@ -208,7 +164,14 @@ class MainWindow(QMainWindow):
 
     def apply_theme(self):
         self._set_palette()
-        self.theme_btn.setText(tr("☀  Світла тема") if self.dark else tr("☾  Темна тема"))
+        self.theme_btn.setText(tr("Світла тема") if self.dark else tr("Темна тема"))
+        set_icon(self.theme_btn, "sun" if self.dark else "moon")
+        refresh_icons(self)
+        for i, (_, _, ic) in enumerate(NAV):
+            self.nav.item(i).setIcon(icon(ic, W.PALETTE["side_text"], 18))
+        from ui.icons import app_icon
+        self.setWindowIcon(app_icon())
+        self.home.redraw()
         # перемалювати сторінки, де кольори задаються в коді
         self.excel.refresh()
         self.scenario.update_summary()
@@ -236,14 +199,29 @@ class MainWindow(QMainWindow):
             QProcess.startDetached(sys.executable, [os.path.abspath(sys.argv[0])] + sys.argv[1:], os.getcwd())
             QApplication.instance().quit()
 
+    def show_about(self):
+        AboutDialog(self).exec()
+
+    def open_history(self, query: str = ""):
+        self.go("history")
+        self.history.search.setText(query)
+
+    def refresh_recent(self):
+        try:
+            self.home.set_recent(self.repo().list_results(limit=300))
+        except Exception:
+            self.home.set_recent([])
+
     def _on_nav(self, row):
         key = NAV[row][0]
         self.stack.setCurrentWidget(self.pages[key])
         if key == "history":
             self.history.reload()
+        elif key == "home" and self._repo is not None:
+            self.refresh_recent()
 
     def go(self, key, open_file=False):
-        self.nav.setCurrentRow([k for k, _ in NAV].index(key))
+        self.nav.setCurrentRow([k for k, *_ in NAV].index(key))
         if open_file and key == "excel":
             self.excel.open_file()
 
@@ -273,8 +251,10 @@ class MainWindow(QMainWindow):
             dot = W.PALETTE["ok"] if mongo else W.PALETTE["warn"]
             self.storage_label.setText(f"<span style='color:{dot}'>●</span> " + ("MongoDB" if mongo else tr("JSON-файли")))
             self.storage_label.setToolTip(tr_msg(self._repo.describe()) + ("\n" + warn if warn else ""))
-            self.home.storage.setText(tr("Сховище результатів: {d}", d=tr_msg(self._repo.describe())) +
+            self.home.storage.setText(f"<span style='color:{dot}'>●</span> " +
+                                      tr("Сховище результатів: {d}", d=tr_msg(self._repo.describe())) +
                                       ("" if mongo else tr(" – MongoDB не запущена, результати зберігаються у файлах.")))
+            self.refresh_recent()
 
         self._storage_worker = Worker(job, self)
         self._storage_worker.done.connect(done)

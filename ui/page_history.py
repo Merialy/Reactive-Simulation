@@ -27,7 +27,7 @@ class HistoryPage(QWidget):
         lay.setContentsMargins(28, 24, 28, 20)
         lay.setSpacing(14)
         self.header = PageHeader(tr("Історія результатів"), tr("Результати, збережені кнопкою «Зберегти в базу даних»."))
-        self.header.add_action(button(tr("Оновити"), slot=self.reload))
+        self.header.add_action(button(tr("Оновити"), slot=self.reload, icon="refresh"))
         lay.addWidget(self.header)
         self.banner = Banner()
         lay.addWidget(self.banner)
@@ -38,11 +38,11 @@ class HistoryPage(QWidget):
         self.search.setPlaceholderText(tr("Пошук за назвою сценарію або тегом (наприклад, назвою Excel-файлу)…"))
         self.search.textChanged.connect(self._filter)
         tools.addWidget(self.search, 1)
-        tools.addWidget(button(tr("Відкрити"), "Primary", slot=self.open_selected,
+        tools.addWidget(button(tr("Відкрити"), "Primary", slot=self.open_selected, icon="arrow",
                                tooltip=tr("Показати вибраний результат на сторінці «Результати»")))
-        tools.addWidget(button(tr("Порівняти"), slot=self.compare_selected,
+        tools.addWidget(button(tr("Порівняти"), slot=self.compare_selected, icon="compare",
                                tooltip=tr("Виділіть 2 або більше рядків (Ctrl + клік)")))
-        tools.addWidget(button(tr("Видалити"), "Danger", slot=self.delete_selected))
+        tools.addWidget(button(tr("Видалити"), "Danger", slot=self.delete_selected, icon="trash"))
         card.add(tools)
         self.table = QTableWidget(0, len(COLS))
         self.table.setHorizontalHeaderLabels(COLS)

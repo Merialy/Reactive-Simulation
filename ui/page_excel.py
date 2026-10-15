@@ -1,5 +1,5 @@
 """
-Сторінка «Дані Excel»: серія сценаріїв з двома типами подій (8 параметрів у стовпці).
+Сторінка «Серія сценаріїв»: таблиця параметрів, кожен стовпець – сценарій з двома типами подій (8 параметрів).
 Таблицю можна відкрити з файлу, редагувати, доповнювати і зберігати.
 Кожна комірка перевіряється одразу; останній рядок показує завантаження процесора U.
 """
@@ -30,13 +30,13 @@ class ExcelPage(QWidget):
         lay.setContentsMargins(28, 24, 28, 20)
         lay.setSpacing(14)
 
-        self.header = PageHeader(tr("Серія сценаріїв з Excel"),
-                                 tr("Кожен стовпець – окремий сценарій з двома типами подій (МРЧ і ЖРЧ). "
-                                 "Комірки можна редагувати прямо в таблиці."))
-        self.header.add_action(button(tr("Відкрити Excel…"), slot=self.open_file,
+        self.header = PageHeader(tr("Серія сценаріїв"),
+                                 tr("Таблиця параметрів: кожен стовпець – окремий сценарій з двома типами подій "
+                                    "(МРЧ і ЖРЧ). Відкрийте Excel-файл або введіть значення вручну."))
+        self.header.add_action(button(tr("Відкрити Excel…"), slot=self.open_file, icon="folder",
                                       tooltip=tr("Завантажити таблицю параметрів з .xlsx")))
-        self.header.add_action(button(tr("Зберегти як…"), slot=self.save_file))
-        self.run_btn = self.header.add_action(button(tr("▶  Запустити серію"), "Primary", slot=lambda: self.run_requested.emit()))
+        self.header.add_action(button(tr("Зберегти як…"), slot=self.save_file, icon="save"))
+        self.run_btn = self.header.add_action(button(tr("Запустити серію"), "Primary", slot=lambda: self.run_requested.emit(), icon="play"))
         lay.addWidget(self.header)
 
         self.banner = Banner()
@@ -46,11 +46,13 @@ class ExcelPage(QWidget):
         tools = QHBoxLayout()
         self.file_label = muted(tr("Файл не відкрито – можна заповнити таблицю вручну."))
         tools.addWidget(self.file_label, 1)
-        tools.addWidget(button(tr("+ Стовпець"), slot=self.add_column, tooltip=tr("Додати порожній сценарій")))
-        tools.addWidget(button(tr("Дублювати"), slot=self.duplicate_column,
+        tools.addWidget(button(tr("Стовпець"), slot=self.add_column, tooltip=tr("Додати порожній сценарій"), icon="plus"))
+        tools.addWidget(button(tr("Дублювати"), slot=self.duplicate_column, icon="copy",
                                tooltip=tr("Скопіювати виділений стовпець у новий сценарій")))
-        tools.addWidget(button(tr("Видалити"), "Danger", slot=self.delete_columns,
+        tools.addWidget(button(tr("Видалити"), "Danger", slot=self.delete_columns, icon="trash",
                                tooltip=tr("Видалити виділені стовпці")))
+        tools.addWidget(button(tr("Очистити таблицю"), "Danger", slot=self.clear_table, icon="eraser",
+                               tooltip=tr("Повернути порожню таблицю, як під час запуску програми")))
         card.add(tools)
 
         self.table = QTableWidget()
@@ -186,6 +188,18 @@ class ExcelPage(QWidget):
             return
         self.data.remove_columns(cols)
         self.refresh()
+        self.table_changed.emit()
+
+    def clear_table(self):
+        """Порожня таблиця з 3 стовпців – як під час запуску програми."""
+        if self._filled_count() and QMessageBox.question(
+                self, tr("Очистити таблицю"),
+                tr("Очистити всю таблицю? Незбережені зміни буде втрачено.")) != QMessageBox.StandardButton.Yes:
+            return
+        self.data = ParamTable(columns=3)
+        self.refresh()
+        self.file_label.setText(tr("Файл не відкрито – можна заповнити таблицю вручну."))
+        self.banner.show_message(tr("Таблицю очищено. Відкрийте Excel-файл або введіть значення вручну."), "info")
         self.table_changed.emit()
 
     # ------------------------------------------------------------------

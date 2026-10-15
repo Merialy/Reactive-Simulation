@@ -22,9 +22,19 @@ def main():
     from ui.main_window import MainWindow
     from ui.errors import install_excepthook
 
+    if sys.platform == "win32":
+        # власний ідентифікатор програми: інакше Windows групує вікно з python.exe і показує
+        # на панелі завдань значок Python замість значка програми
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("KhAI.ReactiveSimulation")
+        except Exception:
+            pass
     app = QApplication(sys.argv)
     app.setApplicationName("Симулятор моделі реактивності")
     app.setStyle("Fusion")
+    from ui.icons import app_icon
+    app.setWindowIcon(app_icon())
     # стандартні кнопки Qt («Так/Ні», діалоги файлів) – тією ж мовою
     tr_qt = QTranslator(app)
     if tr_qt.load(f"qtbase_{'en' if i18n.is_en() else 'uk'}",

@@ -111,7 +111,7 @@ def main():
                     w.excel.data.set(r, c, v)
             w.excel.refresh()
         shot("02_excel")
-    step("2. Дані Excel", excel)
+    step("2. Серія сценаріїв (таблиця параметрів)", excel)
 
     def run_excel():
         t0 = time.time()
@@ -195,6 +195,27 @@ def main():
         shot("17_dark_charts")
         w.toggle_theme()
     step("8. Темна тема", dark)
+
+    def about_clear():
+        from ui.page_home import AboutDialog
+        w.go("home")
+        w.refresh_recent()
+        shot("18_home_after_runs")
+        dlg = AboutDialog(w)
+        dlg.show()
+        shot("19_about", dlg)
+        dlg.close()
+        from PySide6.QtWidgets import QMessageBox
+        ask = QMessageBox.question
+        QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+        try:
+            w.go("excel")
+            w.excel.clear_table()
+            assert w.excel.data.n_cols == 3 and w.excel._filled_count() == 0, "таблиця не очистилась"
+            shot("20_series_cleared")
+        finally:
+            QMessageBox.question = ask
+    step("9. Стартовий екран з результатами, «Про програму», очищення таблиці", about_clear)
 
     errors += len(slot_errors)
     log(f"ГОТОВО. Помилок: {errors}. Знімки і журнал: {os.path.abspath(OUT)}")
