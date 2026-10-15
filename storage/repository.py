@@ -121,6 +121,8 @@ def result_document(scenario, result: Dict, settings: Dict, scenario_id: Optiona
         "tags": list(tags or []),
         "note": note,
         **({"fault_stats": result["faults"]} if result.get("faults") else {}),
+        **({"system": result["system"]} if result.get("system") else {}),
+        **({"extra": result["extra"]} if result.get("extra") else {}),
     }
 
 

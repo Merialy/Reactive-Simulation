@@ -121,6 +121,10 @@ def main():
         assert w.results.result and w.results.result["kind"] == "excel", "немає результату серії"
         page_is("results")
         shot("03_results_excel")
+        assert w.results.extra_card.isVisible() and w.results.theory_card.isVisible(), \
+            "немає карток «Додаткові показники» / «Порівняння з теорією»"
+        shot("03b_results_extra", w.results.extra_card)
+        shot("03c_results_theory", w.results.theory_card)
         w.go("charts")
         shot("04_charts_excel")
         w.charts.cb1.setCurrentIndex(max(0, w.charts.cb1.findData(5)))   # порушення дедлайнів від D1
@@ -149,6 +153,9 @@ def main():
         assert w.results.result and w.results.result["kind"] == "scenario", "немає результату сценарію"
         page_is("results")
         shot("07_results_scenario")
+        assert w.results.system_card.isVisible(), "немає картки «Системні показники»"
+        shot("07b_results_types", w.results.main_card)
+        shot("07c_results_system", w.results.system_card)
         w.go("charts")
         for i, name in enumerate(("08_chart_types", "09_chart_time", "10_chart_miss")):
             w.charts.cb1.setCurrentIndex(i)

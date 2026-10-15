@@ -102,6 +102,39 @@ class Badge(QLabel):
         repolish(self)
 
 
+def pad_spin(sb):
+    """Відступ тексту в полі зі стрілками – як у звичайних полях (padding зі стилю на QSpinBox не діє)."""
+    try:
+        sb.lineEdit().setTextMargins(6, 0, 0, 0)
+    except Exception:
+        pass
+    return sb
+
+
+class Fact(QFrame):
+    """Плитка «число + підпис» усередині картки (коротко про сценарій)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("Fact")
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(14, 10, 14, 10)
+        lay.setSpacing(2)
+        self.value = QLabel("–")
+        self.value.setObjectName("FactValue")
+        self.caption = QLabel("")
+        self.caption.setObjectName("Hint")
+        self.caption.setWordWrap(True)
+        lay.addWidget(self.value)
+        lay.addWidget(self.caption)
+
+    def set(self, value: str, caption: str, level: str = ""):
+        self.value.setText(value)
+        self.caption.setText(caption)
+        self.value.setProperty("level", level or "none")
+        repolish(self.value)
+
+
 class Banner(QFrame):
     """Смуга з повідомленням (попередження, помилки, підказки)."""
 

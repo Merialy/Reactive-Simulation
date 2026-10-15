@@ -2,6 +2,21 @@ import numpy as np # type: ignore
 from collections import deque
 from typing import Dict
 
+from simulation import extra_metrics as xm
+
+# Додаткові показники (розділ 1, п. 1.3) – рядкові ключі поруч із 18 класичними (номери 1–18)
+EXTRA_KEYS = ('srt_p95', 'srt_p99', 'srt_jitter', 'srt_consec', 'srt_ready',
+              'hrt_p95', 'hrt_p99', 'hrt_jitter', 'hrt_consec', 'hrt_ready',
+              'q0_max', 'qs_max', 'qh_max')
+
+
+def _extras(prefix: str, soj: np.ndarray, wait_total: np.ndarray, late: np.ndarray) -> Dict:
+    """95-й і 99-й перцентилі часу реакції (= мінімальний дедлайн D*(p) для p = 5 % і 1 %, формула 2.26),
+    джиттер, найбільша кількість пропусків дедлайну поспіль і коефіцієнт готовності."""
+    return {f'{prefix}_p95': float(np.percentile(soj, 95)), f'{prefix}_p99': float(np.percentile(soj, 99)),
+            f'{prefix}_jitter': xm.jitter(soj), f'{prefix}_consec': float(xm.max_consecutive(late)),
+            f'{prefix}_ready': xm.readiness(wait_total)}
+
 # ======================================
 # ОСНОВНИЙ КЛАС СИМУЛЯЦІЇ
 # ======================================
@@ -236,6 +251,7 @@ class PriorityQueueSimulation:
             results[6] = max(0.0, float(wp.max())); results[7] = max(0.0, float(ws1.max()))
             results[9] = max(0.0, float(soj1.max()))
             results[17] = float((soj1 > D1).mean())
+            results.update(_extras('srt', soj1, wp + ws1, soj1 > D1))
         else:
             for k in (1, 2, 4, 6, 7, 9, 17):
                 results[k] = 0.0
@@ -248,12 +264,14 @@ class PriorityQueueSimulation:
             m = (a2 >= t_start) & (a2 <= t_end) & (end_sec2[sl2] > 0)
             ws2 = (start_sec2[sl2] - end_prim2[sl2])[m]
             soj2 = (end_sec2[sl2] - a2)[m]
+            wp2 = (start_prim2[sl2] - a2)[m]
         else:
-            ws2 = soj2 = np.empty(0)
+            ws2 = soj2 = wp2 = np.empty(0)
         if ws2.size:
             results[3] = float(ws2.mean()); results[5] = float(soj2.mean())
             results[8] = max(0.0, float(ws2.max())); results[10] = max(0.0, float(soj2.max()))
             results[18] = float((soj2 > D2).mean())
+            results.update(_extras('hrt', soj2, wp2 + ws2, soj2 > D2))
         else:
             for k in (3, 5, 8, 10, 18):
                 results[k] = 0.0
@@ -269,5 +287,11 @@ class PriorityQueueSimulation:
         ta = ev_times[:-1]; tb = ev_times[1:]
         dt = np.clip(np.minimum(tb, t_end) - np.maximum(ta, t_start), 0.0, None)
         f = lambda x: float(np.dot(x[:-1], dt) / total_t)
-        return {11: f(ev_pq), 12: f(ev_sq1), 13: f(ev_sq2),
+        tt = np.asarray(ev_times)
+        out = {11: f(ev_pq), 12: f(ev_sq1), 13: f(ev_sq2),
                 14: f(ev_busy_p), 15: f(ev_busy_s1), 16: f(ev_busy_s2)}
+        # максимальні довжини черг (показник 15 розділу 1): Q0, QS (МРЧ), QH (ЖРЧ)
+        out['q0_max'] = xm.queue_max(tt, np.asarray(ev_pq, dtype=float), t_start, t_end)
+        out['qs_max'] = xm.queue_max(tt, np.asarray(ev_sq1, dtype=float), t_start, t_end)
+        out['qh_max'] = xm.queue_max(tt, np.asarray(ev_sq2, dtype=float), t_start, t_end)
+        return out

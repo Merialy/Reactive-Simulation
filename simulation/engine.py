@@ -24,10 +24,16 @@ from typing import Dict, List
 import numpy as np
 
 from simulation.model import Scenario, HRT, SRT, PERIODIC, POISSON, STORM, OVERRUN
+from simulation import extra_metrics as xm
 
 INF = 1e30
 METRICS_PER_TYPE = ("count", "wait_primary_mean", "wait_secondary_mean", "sojourn_mean",
-                    "sojourn_max", "sojourn_p95", "sojourn_p99", "p_miss", "utilization_secondary")
+                    "sojourn_max", "sojourn_p95", "sojourn_p99", "p_miss", "utilization_secondary",
+                    "jitter", "max_consec_miss", "readiness")
+# показники обмеження (m, n) – лише для типів, у яких воно задане
+METRICS_WH = ("wh_worst_miss", "wh_viol", "wh_ok")
+# системні показники (максимальні довжини черг)
+METRICS_SYSTEM = ("q0_max", "qh_max", "qs_max")
 # показники для подій, що надійшли під час дії відмов (лише для сценаріїв з відмовами)
 METRICS_FAULT = ("count_fault", "sojourn_mean_fault", "sojourn_max_fault", "p_miss_fault")
 
@@ -253,7 +259,8 @@ class EventSimulation:
         n_ref = len(ref_seq)
         i_start = int(np.ceil(n_ref * sc.warmup_fraction))
         i_end = int(np.floor(n_ref * (1 - sc.warmup_fraction)))
-        empty = {'classic': {m: 0.0 for m in range(1, 19)}, 'per_type': {}, 'U': sc.utilization()}
+        empty = {'classic': {m: 0.0 for m in range(1, 19)}, 'per_type': {}, 'U': sc.utilization(),
+                 'system': {k: 0.0 for k in METRICS_SYSTEM}}
         if n_ref == 0 or i_end <= i_start or i_start < 1:
             return empty
         t_start = arr[ref_seq[i_start - 1]]
@@ -322,6 +329,9 @@ class EventSimulation:
         c[14] = f((st == 1).astype(float))
         c[15] = f(((st == 2) & ~sec_hrt).astype(float))
         c[16] = f(((st == 2) & sec_hrt).astype(float))
+        system = {'q0_max': xm.queue_max(et_, A(ev_q0), t_start, t_end),
+                  'qh_max': xm.queue_max(et_, A(ev_qh), t_start, t_end),
+                  'qs_max': xm.queue_max(et_, A(ev_qs), t_start, t_end)}
 
         per_type = {}
         for k, et in enumerate(types):
@@ -330,6 +340,8 @@ class EventSimulation:
             if n == 0:
                 per_type[et.name] = {key: 0.0 for key in METRICS_PER_TYPE}
                 per_type[et.name]['count'] = 0
+                if et.weakly_hard():
+                    per_type[et.name].update({key: 0.0 for key in METRICS_WH})
                 if sc.active_faults():
                     per_type[et.name].update({key: 0.0 for key in METRICS_FAULT})
                 continue
@@ -344,10 +356,15 @@ class EventSimulation:
                 'sojourn_p99': float(np.percentile(so, 99)),
                 'p_miss': float(late[m].mean()),
                 'utilization_secondary': f(((st == 2) & (sec == k)).astype(float)),
+                'jitter': xm.jitter(so),
+                'max_consec_miss': float(xm.max_consecutive(late[m])),
+                'readiness': xm.readiness(wp[m] + ws[m]),
             }
+            if et.weakly_hard():
+                per_type[et.name].update(xm.weakly_hard(late[m], *et.weakly_hard()))
             if sc.active_faults():
                 per_type[et.name].update(self._fault_metrics(sc, k, typ, arr_a, es_a, soj, late))
-        return {'classic': c, 'per_type': per_type, 'U': sc.utilization()}
+        return {'classic': c, 'per_type': per_type, 'U': sc.utilization(), 'system': system}
 
     # ------------------------------------------------------------------
     @staticmethod

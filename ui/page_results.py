@@ -10,9 +10,10 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QHBoxL
                                QTableWidget, QVBoxLayout, QWidget, QScrollArea, QFrame)
 
 from config import Config
-from ui.core import (FAULT_ROWS, comma, METRIC_SHORT, PER_TYPE_ROWS, export_batch_excel, export_scenario_excel, fmt,
-                     fmt_ci)
-from ui.widgets import Banner, Card, PageHeader, button, color, muted, ro_item
+from ui.core import (EXTRA_ROWS, FAULT_ROWS, SYSTEM_ROWS, WH_ROWS, comma, METRIC_SHORT, PER_TYPE_ROWS,
+                     export_batch_excel, export_scenario_excel, extra_value, fmt, fmt_ci, system_values, theory_table)
+from ui.explain import batch_conclusion, scenario_conclusion
+from ui.widgets import PALETTE, Banner, Card, PageHeader, button, color, muted, ro_item
 from ui.i18n import tr, tr_msg
 from ui.core import METRIC_NAMES, cls_name, type_label
 
@@ -80,6 +81,14 @@ class ResultsPage(QWidget):
             self.tiles_row.addWidget(t)
         self.body.addLayout(self.tiles_row)
 
+        self.concl_card = Card(tr("Висновок простими словами"))
+        self.concl = QLabel()
+        self.concl.setWordWrap(True)
+        self.concl.setTextFormat(Qt.TextFormat.RichText)
+        self.concl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.concl_card.add(self.concl)
+        self.body.addWidget(self.concl_card)
+
         self.main_card = Card(tr("Показники"))
         self.show_ci = QCheckBox(tr("Показувати ± 95 % довірчий інтервал"))
         self.show_ci.setChecked(True)
@@ -90,6 +99,28 @@ class ResultsPage(QWidget):
         self.legend = muted("", hint=True)
         self.main_card.add(self.legend)
         self.body.addWidget(self.main_card)
+
+        self.system_card = Card(tr("Системні показники"),
+                                tr("U, H, U_os і η – за формулами розділу 1; максимальні довжини черг – за моделюванням."))
+        self.system_table = self._make_table()
+        self.system_card.add(self.system_table)
+        self.body.addWidget(self.system_card)
+
+        self.extra_card = Card(tr("Додаткові показники"),
+                               tr("Показники розділу 1, яких немає серед 18 основних. «Мін. дедлайн для P ≤ 5 %» – "
+                                  "найменший дедлайн, за якого запізнюється не більше 5 % подій (формула 2.26)."))
+        self.extra_table = self._make_table()
+        self.extra_card.add(self.extra_table)
+        self.body.addWidget(self.extra_card)
+
+        self.theory_card = Card(tr("Порівняння з теорією"),
+                                tr("Середній час перебування подій МРЧ: імітаційне моделювання і три наближення "
+                                   "класичної теорії масового обслуговування (розділ 2, п. 2.5.2). Точної формули для "
+                                   "моделі з трьома чергами немає, тому відхилення очікувані: наближення 1 занижує, "
+                                   "наближення 3 завищує."))
+        self.theory_table = self._make_table()
+        self.theory_card.add(self.theory_table)
+        self.body.addWidget(self.theory_card)
 
         self.fault_card = Card(tr("Під час дії відмов"),
                                tr("Показники лише для подій, що надійшли, поки діяла відмова "
@@ -140,7 +171,8 @@ class ResultsPage(QWidget):
         self.save_btn.setEnabled(has and r["kind"] in ("excel", "scenario"))
         self.export_btn.setEnabled(has and r["kind"] in ("excel", "scenario"))
         self.charts_btn.setEnabled(has and r["kind"] in ("excel", "scenario"))
-        for w in (self.main_card, self.fault_card, self.warn_card):
+        for w in (self.concl_card, self.main_card, self.system_card, self.extra_card, self.theory_card,
+                  self.fault_card, self.warn_card):
             w.setVisible(has)
         for t in self.tiles:
             t.setVisible(has)
@@ -150,6 +182,9 @@ class ResultsPage(QWidget):
         {"excel": self._render_excel, "scenario": self._render_scenario, "doc": self._render_doc}[r["kind"]]()
         self._fit_height(self.table, 40)
         self._fit_height(self.fault_table, 20)
+        self._fit_height(self.system_table, 10)
+        self._fit_height(self.extra_table, 20)
+        self._fit_height(self.theory_table, 10)
 
     def _cell(self, mean, ci):
         return fmt_ci(mean, ci) if self.show_ci.isChecked() else fmt(mean)
@@ -169,6 +204,7 @@ class ResultsPage(QWidget):
         worst = max((b["mean"][18] for b in batch if b), default=0.0)
         self.tiles[3].set(fmt(worst, 3), "err" if worst > 0 else "ok", tr("макс. P порушення дедлайну ЖРЧ"))
 
+        self._conclude(lambda: batch_conclusion(batch, warns, errs, PALETTE))
         t = self.table
         t.clear()
         cols = [c for c in range(len(batch)) if batch[c] is not None or c in errs]
@@ -207,6 +243,8 @@ class ResultsPage(QWidget):
                             "жорстких (ЖРЧ). ⚠ – сценарій з попередженням, ✖ – з помилкою (наведіть на заголовок)."))
         self.main_card.setVisible(True)
         self.fault_card.setVisible(False)
+        self.system_card.setVisible(False)
+        self._render_excel_extra(cols)
         lines = [f"<b style='color:{color('err').name()}'>" + tr("Сценарій {n}", n=c + 1) + f":</b> {tr_msg(e)}" for c, e in sorted(errs.items())]
         lines += [f"<b style='color:{color('warn').name()}'>" + tr("Сценарій {n}", n=c + 1) + f":</b> {tr_msg(w)}"
                   for c, ws in sorted(warns.items()) for w in ws]
@@ -247,7 +285,12 @@ class ResultsPage(QWidget):
         else:
             self.tiles[3].set(tr("немає"), "", tr("відмов у сценарії"))
 
-        self._fill_types(self.table, sc, res, PER_TYPE_ROWS)
+        self._conclude(lambda: scenario_conclusion(sc, res, PALETTE))
+        has_wh = any(et.weakly_hard() for et in sc.event_types)
+        self._fill_types(self.table, sc, res, PER_TYPE_ROWS + (WH_ROWS if has_wh else []))
+        self._fill_system(sc, res)
+        self.extra_card.setVisible(False)
+        self.theory_card.setVisible(False)
         self.legend.setText(tr("Часи – у мілісекундах; час реакції = від надходження переривання до завершення обробки. "
                             "Червоним виділено порушення дедлайнів ЖРЧ, жовтим – МРЧ."))
         if sc.active_faults():
@@ -260,6 +303,84 @@ class ResultsPage(QWidget):
         _, warns = sc.check()
         self.warn_text.setText(comma("<br>".join(f"⚠ {tr_msg(w)}" for w in warns)))
         self.warn_card.setVisible(bool(warns))
+
+    def _conclude(self, make):
+        """Висновок простими словами; якщо його не вдалося сформувати – картка ховається (таблиці лишаються)."""
+        try:
+            self.concl.setText(make())
+            self.concl_card.setVisible(True)
+        except Exception as e:
+            print("Висновок не сформовано:", e)
+            self.concl_card.setVisible(False)
+
+    def _render_excel_extra(self, cols):
+        """Додаткові показники і порівняння з теорією для серії з таблиці параметрів."""
+        r = self.result
+        batch = r["batch"]
+        plist = list(r.get("run_list") or [None] * len(batch))
+        heads = [tr("Сценарій {n}", n=c + 1) for c in cols]
+        t = self.extra_table
+        t.clear()
+        t.setRowCount(len(EXTRA_ROWS))
+        t.setColumnCount(len(cols))
+        t.setVerticalHeaderLabels([lab for _, lab in EXTRA_ROWS])
+        for j, c in enumerate(cols):
+            t.setHorizontalHeaderItem(j, ro_item(heads[j], align_right=False))
+            for i, (key, _) in enumerate(EXTRA_ROWS):
+                m, ci = extra_value(batch[c], plist[c], key)
+                if m is None:
+                    t.setItem(i, j, ro_item("—"))
+                    continue
+                it = ro_item(self._cell(m, ci) if key != "H" else fmt(m, 3))
+                if key == "hrt_consec" and m > 0:
+                    it.setForeground(color("err"))
+                if key == "H" and m <= 0:
+                    it.setForeground(color("err"))
+                t.setItem(i, j, it)
+        t.resizeColumnsToContents()
+        self.extra_card.setVisible(any(batch[c] for c in cols))
+
+        rows = theory_table([plist[c] for c in cols], [batch[c] for c in cols])
+        t = self.theory_table
+        t.clear()
+        t.setRowCount(len(rows))
+        t.setColumnCount(len(cols))
+        t.setVerticalHeaderLabels([lab for lab, _ in rows])
+        for j in range(len(cols)):
+            t.setHorizontalHeaderItem(j, ro_item(heads[j], align_right=False))
+            for i, (lab, vals) in enumerate(rows):
+                v = vals[j]
+                if v is None:
+                    t.setItem(i, j, ro_item("—"))
+                    continue
+                if lab.startswith("    "):
+                    it = ro_item(("+" if v > 0 else "") + fmt(v, 2) + " %")
+                    it.setForeground(color("muted"))
+                else:
+                    it = ro_item(fmt(v, 4))
+                t.setItem(i, j, it)
+        t.resizeColumnsToContents()
+        self.theory_card.setVisible(any(batch[c] for c in cols) and all(p is not None for p in plist))
+
+    def _fill_system(self, sc, res):
+        vals = system_values(sc, res)
+        t = self.system_table
+        t.clear()
+        t.setRowCount(len(SYSTEM_ROWS))
+        t.setColumnCount(1)
+        t.setVerticalHeaderLabels([lab for _, lab in SYSTEM_ROWS])
+        t.setHorizontalHeaderItem(0, ro_item(tr("Значення"), align_right=False))
+        for i, (key, _) in enumerate(SYSTEM_ROWS):
+            v = vals.get(key)
+            if v is None:
+                t.setItem(i, 0, ro_item("—"))
+                continue
+            it = ro_item(fmt(v, 4) if key.endswith("_max") else fmt(v, 3))
+            if key == "H" and v <= 0:
+                it.setForeground(color("err"))
+            t.setItem(i, 0, it)
+        t.resizeColumnsToContents()
+        self.system_card.setVisible(True)
 
     def _fill_types(self, t: QTableWidget, sc, res, rows):
         t.clear()
@@ -280,6 +401,9 @@ class ResultsPage(QWidget):
                     continue
                 txt = fmt(v["mean"], 6) if key.startswith("count") else self._cell(v["mean"], v["ci"])
                 it = ro_item(txt)
+                if key in ("wh_viol",) and v["mean"] > 0 or key == "wh_ok" and v["mean"] < 1:
+                    lvl = "err" if et.cls == "HRT" else "warn"
+                    it.setBackground(color(lvl + "_bg")); it.setForeground(color(lvl))
                 if key.startswith("p_miss") and v["mean"] > 0:
                     lvl = "err" if et.cls == "HRT" else "warn"
                     it.setBackground(color(lvl + "_bg")); it.setForeground(color(lvl))
@@ -332,6 +456,9 @@ class ResultsPage(QWidget):
         self.legend.setText(tr("Відкрито зі сховища. Щоб перерахувати, відкрийте сценарій і запустіть знову."))
         self.fault_card.setVisible(False)
         self.warn_card.setVisible(False)
+        self.concl_card.setVisible(False)
+        for w in (self.system_card, self.extra_card, self.theory_card):
+            w.setVisible(False)
 
     # ------------------------------------------------------------------
     def save_to_db(self):

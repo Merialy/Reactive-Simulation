@@ -55,7 +55,7 @@ def fmt(value, sig: int = 4) -> str:
 def fmt_ci(mean, ci, sig: int = 4) -> str:
     if mean is None:
         return ""
-    if not ci:
+    if not ci or abs(ci) <= 1e-9 * max(1.0, abs(float(mean))):   # шум округлення float – не інтервал
         return fmt(mean, sig)
     return f"{fmt(mean, sig)} ± {fmt(ci, 2)}"
 
@@ -302,12 +302,21 @@ def export_batch_excel(path: str, table: ParamTable, batch: List[Optional[Dict]]
         for m in range(1, 19):
             mean.iloc[m - 1, c] = res["mean"][m]
             ci.iloc[m - 1, c] = res["ci"][m]
+    plist = [table.column_params(c) for c in range(table.n_cols)]
+    extra = pd.DataFrame(index=[lab for _, lab in EXTRA_ROWS], columns=names)
+    for c, res in enumerate(batch):
+        for i, (key, _) in enumerate(EXTRA_ROWS):
+            extra.iloc[i, c] = extra_value(res, plist[c], key)[0]
+    theory = pd.DataFrame([vals for _, vals in theory_table(plist, batch)],
+                          index=[lab.strip() for lab, _ in theory_table(plist, batch)], columns=names)
     notes = [(names[c], tr("ПОМИЛКА"), t) for c, t in errors.items()] + \
             [(names[c], tr("Попередження"), w) for c, ws in warnings.items() for w in ws]
     with pd.ExcelWriter(path, engine="openpyxl") as xw:
         params.to_excel(xw, sheet_name=tr("Параметри"))
         mean.to_excel(xw, sheet_name=tr("Результати"))
         ci.to_excel(xw, sheet_name=tr("Довірчі_інтервали_95"))
+        extra.to_excel(xw, sheet_name=tr("Додаткові_показники"))
+        theory.to_excel(xw, sheet_name=tr("Порівняння_з_теорією"))
         pd.DataFrame(notes, columns=[tr("Сценарій"), tr("Тип"), tr("Текст")]).to_excel(xw, sheet_name=tr("Попередження"), index=False)
         pd.DataFrame(_meta_rows(settings, table.source_name()), columns=[tr("Параметр"), tr("Значення")]) \
             .to_excel(xw, sheet_name=tr("Метадані"), index=False)
@@ -319,12 +328,86 @@ PER_TYPE_ROWS = [
     ("wait_primary_mean", tr("Сер. очікування первинної обробки (ISR), мс")),
     ("wait_secondary_mean", tr("Сер. очікування вторинної обробки, мс")),
     ("sojourn_mean", tr("Сер. час реакції, мс")),
-    ("sojourn_p95", tr("Час реакції, 95-й перцентиль, мс")),
-    ("sojourn_p99", tr("Час реакції, 99-й перцентиль, мс")),
-    ("sojourn_max", tr("Макс. час реакції, мс")),
+    ("sojourn_p95", tr("Мін. дедлайн для P ≤ 5 % (95-й перцентиль), мс")),
+    ("sojourn_p99", tr("Мін. дедлайн для P ≤ 1 % (99-й перцентиль), мс")),
+    ("sojourn_max", tr("Макс. час реакції (WCRT), мс")),
+    ("jitter", tr("Джиттер часу реакції (макс. − мін.), мс")),
     ("p_miss", tr("Ймовірність порушення дедлайну")),
+    ("max_consec_miss", tr("Найбільше пропусків дедлайну поспіль")),
+    ("readiness", tr("Коефіцієнт готовності (без очікування)")),
     ("utilization_secondary", tr("Завантаження вторинним обробником")),
 ]
+# Обмеження weakly hard (m, n) – рядки показуються, якщо хоча б для одного типу його задано
+WH_ROWS = [
+    ("wh_worst_miss", tr("(m, n): найбільше пропусків в одному вікні з n подій")),
+    ("wh_viol", tr("(m, n): частка вікон, де обмеження порушено")),
+    ("wh_ok", tr("(m, n): частка прогонів без жодного порушення")),
+]
+# Системні показники (сценарій з типами подій)
+SYSTEM_ROWS = [
+    ("U", tr("Завантаження процесора U")),
+    ("H", tr("Запас потужності H = 1 − U")),
+    ("U_os", tr("Накладні витрати ОС U_os")),
+    ("eta", tr("Ефективність планування η = (U − U_os) / U")),
+    ("q0_max", tr("Макс. довжина черги Q0 (ISR)")),
+    ("qh_max", tr("Макс. довжина черги QH (ЖРЧ)")),
+    ("qs_max", tr("Макс. довжина черги QS (МРЧ)")),
+]
+# Додаткові показники для серії з таблиці параметрів (2 типи подій)
+EXTRA_ROWS = [
+    ("srt_p95", tr("МРЧ: мін. дедлайн для P ≤ 5 %, мс")),
+    ("srt_p99", tr("МРЧ: мін. дедлайн для P ≤ 1 %, мс")),
+    ("hrt_p99", tr("ЖРЧ: мін. дедлайн для P ≤ 1 %, мс")),
+    ("srt_jitter", tr("МРЧ: джиттер часу реакції, мс")),
+    ("hrt_jitter", tr("ЖРЧ: джиттер часу реакції, мс")),
+    ("srt_consec", tr("МРЧ: найбільше пропусків дедлайну поспіль")),
+    ("hrt_consec", tr("ЖРЧ: найбільше пропусків дедлайну поспіль")),
+    ("srt_ready", tr("МРЧ: коефіцієнт готовності")),
+    ("hrt_ready", tr("ЖРЧ: коефіцієнт готовності")),
+    ("q0_max", tr("Макс. довжина черги Q0 (ISR)")),
+    ("qs_max", tr("Макс. довжина черги QS (МРЧ)")),
+    ("qh_max", tr("Макс. довжина черги QH (ЖРЧ)")),
+    ("H", tr("Запас потужності H = 1 − U")),
+]
+THEORY_NAMES = {"approx1": tr("Наближення 1: Поллачек–Хінчин, без пріоритетів"),
+                "approx2": tr("Наближення 2: Кобгем, відносний пріоритет"),
+                "approx3": tr("Наближення 3: абсолютний пріоритет з дообслуговуванням")}
+
+
+def system_values(scenario, res: Dict) -> Dict[str, Optional[float]]:
+    """Значення SYSTEM_ROWS: формули (U, H, U_os, η) і результати моделювання (Q_max)."""
+    from simulation.analytic import scenario_os_share, system_load
+    u = scenario.utilization()
+    vals = {"U": u, **system_load(u, scenario_os_share(scenario))}
+    for k in ("q0_max", "qh_max", "qs_max"):
+        v = (res.get("system") or {}).get(k)
+        vals[k] = v["mean"] if v else None
+    return vals
+
+
+def theory_table(params_list: List[Optional[Dict]], batch: List[Optional[Dict]]):
+    """
+    Порівняння середнього часу перебування МРЧ з наближеннями п. 2.5.2.
+    Повертає список рядків (назва, [значення по сценаріях]); для відхилень – у відсотках.
+    """
+    from simulation.analytic import APPROX, deviation
+    rows = [(tr("Імітаційне моделювання, мс"), [b["mean"][4] if b else None for b in batch])]
+    for key, f in APPROX:
+        th = [f(p) if (p and b) else None for p, b in zip(params_list, batch)]
+        rows.append((THEORY_NAMES[key] + tr(", мс"), th))
+        rows.append(("    " + tr("відхилення, %"),
+                     [deviation(t, b["mean"][4]) if (t is not None and b) else None for t, b in zip(th, batch)]))
+    return rows
+
+
+def extra_value(res: Optional[Dict], params: Optional[Dict], key: str):
+    if not res:
+        return None, None
+    if key == "H":
+        from simulation.validation import utilization
+        return (1.0 - utilization(params), 0.0) if params else (None, None)
+    v = (res.get("extra") or {}).get(key)
+    return (v["mean"], v["ci"]) if v else (None, None)
 FAULT_ROWS = [
     ("count_fault", tr("Кількість подій під час відмови")),
     ("sojourn_mean_fault", tr("Сер. час реакції під час відмови, мс")),
@@ -338,14 +421,19 @@ def export_scenario_excel(path: str, scenario, res: Dict, settings: Dict):
     names = [et.name for et in scenario.event_types]
     types = pd.DataFrame([{tr("Тип"): type_label(et.cls, et.name), tr("Клас"): cls_name(et.cls),
                            tr("Інтенсивність, 1/мс"): et.rate, tr("WCET + T_core, мс"): et.service_ms(scenario.platform),
-                           tr("Дедлайн, мс"): et.deadline_ms} for et in scenario.event_types])
-    rows = PER_TYPE_ROWS + (FAULT_ROWS if scenario.active_faults() else [])
+                           tr("Дедлайн, мс"): et.deadline_ms,
+                           tr("m з n"): (f"{et.wh_m}/{et.wh_n}" if et.weakly_hard() else "")}
+                          for et in scenario.event_types])
+    sysv = system_values(scenario, res)
+    system = pd.DataFrame([(lab, sysv.get(k)) for k, lab in SYSTEM_ROWS], columns=[tr("Показник"), tr("Значення")])
+    rows = PER_TYPE_ROWS + (WH_ROWS if any(et.weakly_hard() for et in scenario.event_types) else []) + \
+        (FAULT_ROWS if scenario.active_faults() else [])
     mean = pd.DataFrame(index=[r[1] for r in rows], columns=names)
     ci = mean.copy()
     for j, n in enumerate(names):
         for i, (key, _) in enumerate(rows):
             v = res["per_type"][n].get(key)
-            if v:
+            if v is not None:
                 mean.iloc[i, j] = v["mean"]
                 ci.iloc[i, j] = v["ci"]
     extra = [(tr("Сценарій"), scenario.name), (tr("U (без відмов)"), round(scenario.utilization(), 4))]
@@ -356,6 +444,7 @@ def export_scenario_excel(path: str, scenario, res: Dict, settings: Dict):
         types.to_excel(xw, sheet_name=tr("Типи_подій"), index=False)
         mean.to_excel(xw, sheet_name=tr("Результати"))
         ci.to_excel(xw, sheet_name=tr("Довірчі_інтервали_95"))
+        system.to_excel(xw, sheet_name=tr("Системні_показники"), index=False)
         pd.DataFrame(_meta_rows(settings, scenario.name, extra), columns=[tr("Параметр"), tr("Значення")]) \
             .to_excel(xw, sheet_name=tr("Метадані"), index=False)
         _autowidth(xw)

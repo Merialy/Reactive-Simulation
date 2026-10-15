@@ -62,7 +62,20 @@ def run_replications(params: Dict, replications: int = 5, base_seed: int = 42) -
     for m in METRIC_IDS:
         s = summarize([run[m] for run in runs])
         mean[m], ci[m] = s['mean'], s['ci']
-    return {'mean': mean, 'ci': ci, 'runs': runs}
+    return {'mean': mean, 'ci': ci, 'extra': summarize_extra(runs), 'runs': runs}
+
+
+def summarize_extra(runs) -> Dict:
+    """Середнє і ДІ для додаткових показників (рядкові ключі, див. priority_simulator.EXTRA_KEYS).
+    Показник, якого немає в жодному прогоні (наприклад, немає подій ЖРЧ), пропускається."""
+    from simulation.priority_simulator import EXTRA_KEYS
+    out = {}
+    for k in EXTRA_KEYS:
+        vals = [run[k] for run in runs if k in run]
+        if vals:
+            s = summarize(vals)
+            out[k] = {'mean': s['mean'], 'ci': s['ci']}
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +142,7 @@ def run_batch(param_list, replications: int = 5, base_seed: int = 42,
         for m in METRIC_IDS:
             s = summarize([run[m] for run in runs[i]])
             mean[m], ci[m] = s['mean'], s['ci']
-        out.append({'mean': mean, 'ci': ci, 'runs': runs[i]})
+        out.append({'mean': mean, 'ci': ci, 'extra': summarize_extra(runs[i]), 'runs': runs[i]})
     return out
 
 
@@ -190,6 +203,10 @@ def run_scenario_replications(scenario, replications: int = 5, base_seed: int = 
             s = summarize([r['per_type'][name][key] for r in runs])
             per_type[name][key] = {'mean': s['mean'], 'ci': s['ci']}
     out = {'classic': classic, 'per_type': per_type, 'U': runs[0]['U'], 'runs': runs}
+    if 'system' in runs[0]:
+        out['system'] = {key: {'mean': s['mean'], 'ci': s['ci']}
+                         for key in runs[0]['system']
+                         for s in [summarize([r.get('system', {}).get(key, 0.0) for r in runs])]}
     if 'faults' in runs[0]:
         out['faults'] = {key: {'mean': s['mean'], 'ci': s['ci']}
                          for key in runs[0]['faults']

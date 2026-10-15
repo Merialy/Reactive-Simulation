@@ -60,6 +60,15 @@ class EventType:
     wcet_cycles: Optional[float] = None     # або в тактах
     arrival: Optional[str] = None           # "periodic" / "poisson"; за замовчуванням HRT – periodic, SRT – poisson
     phase_ms: Optional[float] = None        # момент першої періодичної події (за замовчуванням – період)
+    # Обмеження weakly hard real-time (m, n) (п. 1.3, показник 14; п. 1.4.4): з будь-яких n послідовних
+    # подій цього типу хоча б m мають бути оброблені до дедлайну. None – обмеження не задано.
+    wh_m: Optional[int] = None
+    wh_n: Optional[int] = None
+
+    def weakly_hard(self) -> Optional[Tuple[int, int]]:
+        if self.wh_m is None or self.wh_n is None:
+            return None
+        return int(self.wh_m), int(self.wh_n)
 
     def arrival_law(self) -> str:
         return self.arrival or (PERIODIC if self.cls == HRT else POISSON)
@@ -181,6 +190,10 @@ class Scenario:
                 errors.append(f"Тип «{et.name}»: закон надходження має бути periodic або poisson.")
             if et.rate <= 0:
                 errors.append(f"Тип «{et.name}»: інтенсивність має бути більшою за 0.")
+            if (et.wh_m is None) != (et.wh_n is None):
+                errors.append(f"Тип «{et.name}»: для обмеження (m, n) потрібно задати обидва числа.")
+            elif et.wh_n is not None and not (1 <= et.wh_m <= et.wh_n <= 10000):
+                errors.append(f"Тип «{et.name}»: обмеження (m, n) має задовольняти 1 ≤ m ≤ n ≤ 10000.")
             try:
                 if et.service_ms(self.platform) <= 0:
                     errors.append(f"Тип «{et.name}»: WCET має бути більшим за 0.")
@@ -229,6 +242,9 @@ class Scenario:
     # ---------- JSON ----------
     def to_dict(self) -> Dict:
         d = asdict(self)
+        for e in d["event_types"]:                # без (m, n) – той самий формат і ключ у БД, що й раніше
+            if e.get("wh_m") is None and e.get("wh_n") is None:
+                e.pop("wh_m", None); e.pop("wh_n", None)
         if not d.get("faults"):
             d.pop("faults", None)            # сценарії без відмов – у форматі версії 2 (той самий ключ у БД)
         d["schema_version"] = 2

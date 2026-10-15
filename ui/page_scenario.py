@@ -1,9 +1,8 @@
 """
 Сторінка «Сценарій»: сценарій з довільною кількістю типів подій і сценаріями відмов.
 Сценарій зберігається у JSON-файлі (папка scenarios) і моделюється ядром simulation/engine.py.
-Підсумок (U, попередження) оновлюється після кожної зміни.
+«Коротко про сценарій» (завантаження, відмови, попередження) оновлюється після кожної зміни.
 """
-import copy
 import glob
 import os
 
@@ -15,21 +14,43 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QFileDia
 from simulation.model import (HRT, OVERRUN, PERIODIC, POISSON, SRT, STORM, EventType, Fault, Platform,
                               Scenario)
 from ui.core import comma, fmt, parse_number
-from ui.widgets import Badge, Banner, Card, NumberEdit, PageHeader, button, color, muted
+from html import escape
+
+from ui.explain import scenario_facts
+from ui.widgets import Banner, Card, Fact, NumberEdit, PageHeader, button, color, muted, pad_spin
 from ui.i18n import tr, tr_msg
 
 SCEN_DIR = "scenarios"
 
 # Стовпці таблиці типів подій
-T_NAME, T_CLS, T_LAW, T_RATE, T_WCET, T_DL, T_PHASE = range(7)
-T_HEAD = [tr("Назва"), tr("Клас"), tr("Як надходять"), tr("Інтенсивність, 1/мс"), tr("WCET, мс"), tr("Дедлайн, мс"), tr("Фаза, мс")]
+T_NAME, T_CLS, T_LAW, T_RATE, T_WCET, T_DL, T_PHASE, T_WH = range(8)
+T_HEAD = [tr("Назва"), tr("Клас"), tr("Як надходять"), tr("Інтенсивність, 1/мс"), tr("WCET, мс"), tr("Дедлайн, мс"),
+          tr("Фаза, мс"), tr("m з n")]
 T_TIPS = [tr("Назва типу подій (унікальна)"),
           tr("ЖРЧ – жорсткий реальний час (вищий пріоритет), МРЧ – м'який"),
           tr("Закон надходження: за замовчуванням ЖРЧ – періодичний, МРЧ – пуассонівський"),
           tr("Скільки подій надходить за 1 мс (для періодичних – 1/період)"),
           tr("Тривалість вторинної обробки події (без T_core)"),
           tr("Допустимий час реакції на подію"),
-          tr("Момент першої періодичної події (порожньо – через один період)")]
+          tr("Момент першої періодичної події (порожньо – через один період)"),
+          tr("Обмеження weakly hard (m, n): з будь-яких n подій поспіль хоча б m мають бути оброблені вчасно.\n"
+             "Наприклад, «4 з 5» – допускається не більше 1 пропуску дедлайну на 5 подій. Порожньо – без обмеження.")]
+
+
+def parse_wh(text: str):
+    """«4 з 5», «4/5», «4 of 5», «(4, 5)» → (4, 5); порожньо → None. Помилка – ValueError."""
+    import re
+    t = (text or "").strip()
+    if not t or t == "—":
+        return None
+    nums = re.findall(r"\d+", t)
+    if len(nums) != 2 or re.search(r"[.,]\d", t.replace(", ", " ")):
+        raise ValueError(t)
+    return int(nums[0]), int(nums[1])
+
+
+def wh_text(m, n) -> str:
+    return "" if m is None or n is None else tr("{m} з {n}", m=m, n=n)
 
 # Стовпці таблиці відмов
 F_ON, F_KIND, F_NAME, F_START, F_DUR, F_RATE, F_FWCET, F_TARGET, F_PROB, F_FACTOR = range(10)
@@ -70,12 +91,11 @@ class ScenarioPage(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(28, 24, 28, 20)
         outer.setSpacing(14)
-        self.header = PageHeader(tr("Кілька типів подій і відмови"),
-                                 tr("Нова можливість (побажання керівника): не 2 типи подій, як в Excel, а скільки "
-                                 "завгодно, і сценарії відмов. Для роботи з Excel-файлами цей розділ не потрібен."))
+        self.header = PageHeader(tr("Типи подій і відмови"),
+                                 tr("Виберіть сценарій → за потреби змініть числа → «Запустити»."))
         self.combo = QComboBox()
-        self.combo.setMinimumWidth(200)
-        self.combo.setMaximumWidth(340)
+        self.combo.setMinimumWidth(260)
+        self.combo.setMaximumWidth(380)
         self.combo.setToolTip(tr("Готові сценарії з папки scenarios"))
         self.combo.activated.connect(self._on_combo)
         self.header.add_action(self.combo)
@@ -87,14 +107,6 @@ class ScenarioPage(QWidget):
 
         self.banner = Banner()
         outer.addWidget(self.banner)
-        self.howto = Banner()
-        self.howto.show_message(
-            tr("<b>Як користуватися:</b> 1) угорі праворуч виберіть готовий сценарій (або «Новий»); "
-            "2) за потреби змініть числа в таблиці «Типи подій» і додайте відмову кнопкою «Шторм переривань» "
-            "або «Перевищення WCET»; 3) натисніть «Запустити» – відкриються «Результати», далі «Графіки». "
-            "Наведіть мишу на заголовок стовпця – з'явиться пояснення."), "info")
-        self.howto.label.setTextFormat(Qt.TextFormat.RichText)
-        outer.addWidget(self.howto)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -107,6 +119,25 @@ class ScenarioPage(QWidget):
         lay.setContentsMargins(0, 0, 8, 0)
         lay.setSpacing(14)
 
+        # ---------------- Пояснення простими словами ----------------
+        self.story_card = Card(tr("Коротко про сценарій"))
+        self.story_desc = muted("")
+        self.story_card.add(self.story_desc)
+        facts = QHBoxLayout()
+        facts.setSpacing(12)
+        self.facts = [Fact() for _ in range(4)]
+        for f in self.facts:
+            facts.addWidget(f, 1)
+        self.story_card.add(facts)
+        self.alerts = QLabel()
+        self.alerts.setWordWrap(True)
+        self.alerts.setTextFormat(Qt.TextFormat.RichText)
+        self.alerts.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.story_card.add(self.alerts)
+        self.hint = muted("", hint=True)
+        self.story_card.add(self.hint)
+        lay.addWidget(self.story_card)
+
         # ---------------- Загальне і платформа ----------------
         top = QHBoxLayout()
         top.setSpacing(14)
@@ -117,6 +148,7 @@ class ScenarioPage(QWidget):
         self.desc = QLineEdit()
         self.desc.setPlaceholderText(tr("Короткий опис: звідки взято значення"))
         self.n_spin = QSpinBox()
+        pad_spin(self.n_spin)
         self.n_spin.setRange(100, 5_000_000)
         self.n_spin.setSingleStep(1000)
         self.n_spin.setGroupSeparatorShown(True)
@@ -203,23 +235,6 @@ class ScenarioPage(QWidget):
         fcard.add(self.faults_empty)
         lay.addWidget(fcard)
 
-        # ---------------- Підсумок ----------------
-        scard = Card(tr("Підсумок перед запуском"))
-        row = QHBoxLayout()
-        row.setSpacing(18)
-        self.u_badge = Badge("U = –", "info")
-        self.uf_badge = Badge("", "info")
-        self.s1_label = muted("")
-        row.addWidget(QLabel(tr("Завантаження процесора:")))
-        row.addWidget(self.u_badge)
-        row.addWidget(self.uf_badge)
-        row.addSpacing(12)
-        row.addWidget(self.s1_label, 1)
-        scard.add(row)
-        self.checks = muted("")
-        self.checks.setTextFormat(Qt.TextFormat.RichText)
-        scard.add(self.checks)
-        lay.addWidget(scard)
         lay.addStretch(1)
 
         for w in (self.name, self.desc, self.p_name):
@@ -241,13 +256,32 @@ class ScenarioPage(QWidget):
     def reload_list(self):
         self.combo.blockSignals(True)
         self.combo.clear()
-        self.combo.addItem(tr("— готові сценарії —"), None)
+        self.combo.addItem(tr("— виберіть готовий сценарій —"), None)
+        normal, faulty = [], []
         for p in sorted(glob.glob(os.path.join(SCEN_DIR, "*.json"))):
             try:
-                name = Scenario.load(p).name
+                sc = Scenario.load(p)
+                item = (tr(sc.name), p, tr(sc.description))
+                (faulty if sc.faults else normal).append(item)
             except Exception:
-                name = os.path.basename(p)
-            self.combo.addItem(name, p)
+                normal.append((os.path.basename(p), p, ""))
+        for title, items in ((tr("Без відмов"), normal), (tr("З відмовами (щоб порівняти з нормальною роботою)"), faulty)):
+            if not items:
+                continue
+            self.combo.addItem(title, None)
+            head = self.combo.count() - 1
+            try:
+                it = self.combo.model().item(head)
+                it.setEnabled(False)
+                f = it.font()
+                f.setBold(True)
+                it.setFont(f)
+            except Exception:
+                pass
+            for name, p, desc in items:
+                self.combo.addItem("   " + name, p)
+                if desc:
+                    self.combo.setItemData(self.combo.count() - 1, desc, Qt.ItemDataRole.ToolTipRole)
         self.combo.blockSignals(False)
 
     def _on_combo(self, i):
@@ -268,13 +302,15 @@ class ScenarioPage(QWidget):
         self.set_scenario(sc)
         idx = self.combo.findData(path)
         self.combo.setCurrentIndex(max(0, idx))
-        self.banner.show_message(tr("Відкрито: {f}", f=os.path.basename(path)), "ok")
+        self.banner.hide()
         return True
 
     def set_scenario(self, sc: Scenario):
         self._loading = True
         self.name.setText(sc.name)
         self.desc.setText(sc.description)
+        self.name.setCursorPosition(0)          # показувати початок довгого тексту, а не кінець
+        self.desc.setCursorPosition(0)
         self.n_spin.setValue(int(sc.N))
         self.warmup.setValue(sc.warmup_fraction)
         p = sc.platform
@@ -325,6 +361,9 @@ class ScenarioPage(QWidget):
         t.setItem(r, T_WCET, _num_item(wcet))
         t.setItem(r, T_DL, _num_item(et.deadline_ms))
         t.setItem(r, T_PHASE, _num_item(et.phase_ms))
+        wh = QTableWidgetItem(wh_text(et.wh_m, et.wh_n))
+        wh.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        t.setItem(r, T_WH, wh)
 
     def _append_fault(self, f: Fault):
         t = self.faults
@@ -431,8 +470,14 @@ class ScenarioPage(QWidget):
             wcet = self._num(self.types, r, T_WCET, tr("«{n}»: WCET", n=name), errors)
             dl = self._num(self.types, r, T_DL, tr("«{n}»: дедлайн", n=name), errors)
             ph = self._num(self.types, r, T_PHASE, tr("«{n}»: фаза", n=name), errors, allow_empty=True)
+            try:
+                wh = parse_wh(self._text(self.types, r, T_WH))
+            except ValueError:
+                errors.append(tr("«{n}»: m з n – введіть два цілі числа, наприклад «4 з 5»", n=name))
+                wh = None
             ets.append(EventType(name=name, cls=cls, rate=rate if rate is not None else 0.0,
-                                 deadline_ms=dl if dl is not None else 0.0, wcet_ms=wcet, arrival=law, phase_ms=ph))
+                                 deadline_ms=dl if dl is not None else 0.0, wcet_ms=wcet, arrival=law, phase_ms=ph,
+                                 wh_m=wh[0] if wh else None, wh_n=wh[1] if wh else None))
         faults = []
         for r in range(self.faults.rowCount()):
             kind = self.faults.item(r, F_KIND).data(Qt.ItemDataRole.UserRole)
@@ -559,38 +604,32 @@ class ScenarioPage(QWidget):
     # ==================================================================
     def update_summary(self):
         sc, form_errors = self.build_scenario()
+        desc = self.desc.text().strip()
+        self.story_desc.setText(tr(desc))
+        self.story_desc.setVisible(bool(desc))
         try:
-            s1 = sc.s1()
-            core = sc.platform.core_ms()
-            self.p_info.setText(tr("T_IRQ = {a} мс,  T_core = {b} мс", a=fmt(s1), b=fmt(core)))
-            self.s1_label.setText(tr("Первинна обробка T_IRQ = {a} мс", a=fmt(s1)))
+            self.p_info.setText(tr("T_IRQ = {a} мс,  T_core = {b} мс", a=fmt(sc.s1()), b=fmt(sc.platform.core_ms())))
         except Exception:
             self.p_info.setText(tr("Задайте T_IRQ (у мс) або F_clk і C_IRQ."))
-            self.s1_label.setText("")
-        errors, warns = ([], [])
-        if not form_errors:
-            errors, warns = sc.check()
-        errors = form_errors + errors
-        if errors:
-            self.u_badge.set_level("err", "U = ?")
-            self.uf_badge.hide()
+        if form_errors:
+            info = {"facts": [], "alerts": [("err", tr_msg(e)) for e in form_errors], "hint": ""}
         else:
-            u = sc.utilization()
-            lvl = "err" if u >= 1 else ("warn" if u > 0.95 else "ok")
-            self.u_badge.set_level(lvl, f"U = {fmt(u, 3)}")
-            if sc.active_faults():
-                uf = sc.utilization_during_faults()
-                lvlf = "err" if uf >= 1 else ("warn" if uf > 0.95 else "ok")
-                self.uf_badge.set_level(lvlf, tr("під час відмов U = {u}", u=fmt(uf, 3)))
-                self.uf_badge.show()
+            try:
+                info = scenario_facts(sc)
+            except Exception as e:
+                info = {"facts": [], "alerts": [("err", str(e))], "hint": ""}
+        for i, f in enumerate(self.facts):
+            if i < len(info["facts"]):
+                f.set(*info["facts"][i])
+                f.show()
             else:
-                self.uf_badge.hide()
-        lines = [f"<span style='color:{color('err').name()}'>✖ {tr_msg(e)}</span>" for e in errors] + \
-                [f"<span style='color:{color('warn').name()}'>⚠ {tr_msg(w)}</span>" for w in warns]
-        if not lines:
-            lines = [f"<span style='color:{color('ok').name()}'>✔ " + tr("Сценарій коректний, можна запускати.") + "</span>"]
-        self.checks.setText(comma("<br>".join(lines)))
-        self.run_btn.setEnabled(not errors)
+                f.hide()
+        mark = {"ok": "✔", "warn": "⚠", "err": "✖"}
+        self.alerts.setText(comma("<br>".join(f"<span style='color:{color(l).name()}'>{mark[l]} {escape(t)}</span>"
+                                              for l, t in info["alerts"])))
+        self.hint.setText(info["hint"])
+        self.hint.setVisible(bool(info["hint"]))
+        self.run_btn.setEnabled(not any(l == "err" for l, _ in info["alerts"]))
 
     def current(self):
         """Сценарій для запуску: лише з увімкненими відмовами."""

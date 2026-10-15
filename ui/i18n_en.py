@@ -998,4 +998,304 @@ EN = {
         'Clear the whole table? Unsaved changes will be lost.',
     'Таблицю очищено. Відкрийте Excel-файл або введіть значення вручну.':
         'The table has been cleared. Open an Excel file or enter values manually.',
+    # --- пояснення простими словами (v4.4) ---
+    'випадково, в середньому раз на {t} мс':
+        'at random, on average once every {t} ms',
+    'запас продуктивності достатній':
+        'there is enough spare capacity',
+    "Процесор зайнятий у середньому на <b style='color:{c}'>{u}</b> часу – {w}.":
+        "On average the processor is busy <b style='color:{c}'>{u}</b> of the time – {w}.",
+    'Запізнюється значна частина подій – бракує продуктивності процесора або дедлайн надто жорсткий.':
+        'A large share of events is late – the processor lacks capacity or the deadline is too tight.',
+    '{when} в {p} випадків обробка {t} триває <b>в {k} раза довше</b>, ніж заплановано (перевищення WCET – наприклад, через повтори обміну по шині).':
+        '{when}, in {p} of cases processing of {t} takes <b>{k} times longer</b> than planned (WCET overrun – e.g. due to bus retries).',
+    '< {v} %':
+        '< {v} %',
+    'кожні {t} мс':
+        'every {t} ms',
+    'процесор перевантажений – він не встигає обробляти події, черги ростуть без кінця':
+        'the processor is overloaded – it cannot keep up, queues grow without bound',
+    'процесор майже повністю зайнятий – черги можуть бути дуже довгими':
+        'the processor is almost fully busy – queues can become very long',
+    'запас продуктивності невеликий':
+        'there is little spare capacity',
+    "Процесору потрібно <b style='color:{c}'>{u}</b> його потужності – більше, ніж він має: {w}.":
+        "The processor would need <b style='color:{c}'>{u}</b> of its capacity – more than it has: {w}.",
+    "Частка мала – для м'яких подій це зазвичай допустимо.":
+        'The share is small – usually acceptable for soft events.',
+    'Частка помітна – варто оцінити, чи це прийнятно.':
+        'The share is noticeable – check whether it is acceptable.',
+    'З {a} по {b} с модельного часу':
+        'From {a} to {b} s of model time',
+    'Починаючи з {a} с модельного часу':
+        'Starting from {a} s of model time',
+    "{when} надходять <b>хибні переривання</b> (наприклад, від несправної лінії зв'язку): {r} на мілісекунду, кожне забирає {w} мс процесора.":
+        '{when}, <b>spurious interrupts</b> arrive (e.g. from a faulty communication line): {r} per millisecond, each taking {w} ms of processor time.',
+    'усіх типів подій':
+        'all event types',
+    'Змодельовано сценаріїв: {n} із {m}.':
+        'Scenarios simulated: {n} of {m}.',
+    'Щоб побачити, як показники змінюються від параметра, відкрийте «Графіки».':
+        'To see how the metrics depend on a parameter, open “Charts”.',
+    'бортовий обчислювач':
+        'on-board computer',
+    '<b>Що моделюється.</b> Обчислювач {p} отримує переривання від {n} джерел подій. Кожна подія спочатку проходить коротку первинну обробку (ISR), потім чекає в черзі свого класу.':
+        '<b>What is simulated.</b> The computer {p} receives interrupts from {n} event sources. Each event first gets short primary processing (ISR), then waits in the queue of its class.',
+    'Буде змодельовано приблизно {t} с роботи системи.':
+        'About {t} s of system operation will be simulated.',
+    '<b>Відмов немає</b> – система працює в нормальному режимі.':
+        '<b>No faults</b> – the system operates normally.',
+    "<b>На що дивитися після запуску.</b> У «Результатах» з'явиться окрема таблиця «Під час дії відмов» – порівняйте її з основною. Щоб чітко побачити вплив відмови, запустіть цей самий сценарій ще раз без неї (зніміть галочку в таблиці «Відмови») і порівняйте обидва запуски в «Історії».":
+        '<b>What to look at after the run.</b> “Results” will show a separate table “During faults” – compare it with the main one. To see the effect of the fault clearly, run the same scenario again without it (untick it in the “Faults” table) and compare both runs in “History”.',
+    '<b>На що дивитися після запуску.</b> Головне – «P порушення дедлайну»: для ЖРЧ вона має бути 0. Далі – найдовший час реакції кожного типу порівняно з його дедлайном.':
+        '<b>What to look at after the run.</b> The key metric is “P of deadline miss”: for HRT it must be 0. Next, compare the longest response time of each type with its deadline.',
+    'З попередженнями (⚠ у заголовку – наведіть мишу): {s}.':
+        'With warnings (⚠ in the header – hover over it): {s}.',
+    'Пропуск їхнього дедлайну – небезпечна відмова.':
+        'Missing their deadline is a dangerous failure.',
+    'Запізнення допустимі, але небажані.':
+        'Delays are tolerable but undesirable.',
+    'Найповільніша реакція – у сценарії {c}: у середньому {a} мс для МРЧ і {b} мс для ЖРЧ.':
+        'Slowest response – scenario {c}: on average {a} ms for SRT and {b} ms for HRT.',
+    '<b>Відмова.</b>':
+        '<b>Fault.</b>',
+    "Поки діє відмова, процесору потрібно <b style='color:{c}'>{u}</b> його потужності – більше, ніж він має, тому черги ростимуть, поки відмова не закінчиться.":
+        "While the fault lasts the processor would need <b style='color:{c}'>{u}</b> of its capacity – more than it has, so queues will grow until the fault ends.",
+    "Поки діє відмова, процесор зайнятий на <b style='color:{c}'>{u}</b> часу.":
+        "While the fault lasts the processor is busy <b style='color:{c}'>{u}</b> of the time.",
+    'Вимкнені відмови (без галочки) не враховуються: {n}.':
+        'Disabled faults (unticked) are ignored: {n}.',
+    'Найближче до межі – {n}: найдовша реакція {t} мс при дедлайні {d} мс.':
+        'Closest to the limit – {n}: longest response {t} ms with a deadline of {d} ms.',
+    '{n} – {p} (за весь час {q})':
+        '{n} – {p} (over the whole run {q})',
+    "Жорсткі події не постраждали – їх захищає вищий пріоритет; весь удар прийняли м'які події.":
+        'Hard events were not affected – the higher priority protects them; soft events took the whole hit.',
+    'Не змодельовано через помилки в даних: {s}.':
+        'Not simulated because of data errors: {s}.',
+    'Жорсткі (ЖРЧ), вищий пріоритет':
+        'Hard (HRT), higher priority',
+    "М'які (МРЧ), нижчий пріоритет":
+        'Soft (SRT), lower priority',
+    'Для бортової системи це неприпустимо.':
+        'This is unacceptable for an on-board system.',
+    "М'які події (МРЧ) теж укладаються в дедлайни.":
+        'Soft events (SRT) also meet their deadlines.',
+    'Відмова ({f}) не призвела до порушень дедлайнів – система її витримала.':
+        'The fault ({f}) caused no deadline misses – the system withstood it.',
+    'Відмова зачепила жорсткі події – пріоритет від цього не захищає, бо збій стався в обробці самої жорсткої задачі або процесор перевантажений.':
+        'The fault affected hard events – priority does not protect against this, because the failure is in the hard task itself or the processor is overloaded.',
+    'Жорсткі дедлайни (ЖРЧ) порушуються у сценаріях: {s}.':
+        'Hard deadlines (HRT) are missed in scenarios: {s}.',
+    'У жодному сценарії жорсткі дедлайни (ЖРЧ) не порушуються.':
+        'Hard deadlines (HRT) are met in every scenario.',
+    "М'які дедлайни (МРЧ) порушуються у сценаріях: {s}.":
+        'Soft deadlines (SRT) are missed in scenarios: {s}.',
+    "М'які дедлайни (МРЧ) теж виконуються всюди.":
+        'Soft deadlines (SRT) are met everywhere too.',
+    '⚠ Відмова почнеться вже після кінця моделювання (≈ {t} с) – збільште N.':
+        '⚠ The fault starts after the simulation ends (≈ {t} s) – increase N.',
+    'Усі жорсткі події (ЖРЧ) обробляються вчасно.':
+        'All hard events (HRT) are processed on time.',
+    '<b>Під час відмови</b> ({f}) запізнюються:':
+        '<b>During the fault</b> ({f}) late events:',
+    '⚠ Моделювання закінчиться раніше, ніж відмова (≈ {t} с).':
+        '⚠ The simulation ends before the fault does (≈ {t} s).',
+    "М'які події (МРЧ) запізнюються:":
+        'Soft events (SRT) are late:',
+    '{n} – у {p} випадків':
+        '{n} – in {p} of cases',
+    'Жорсткі дедлайни порушуються:':
+        'Hard deadlines are missed:',
+    'Тут систему описують детальніше, ніж у таблиці параметрів: скільки завгодно типів подій (а не лише 2) і можливі відмови – щоб перевірити, що станеться, коли щось піде не так.':
+        'Here the system is described in more detail than in the parameter table: any number of event types (not just 2) and possible faults – to check what happens when something goes wrong.',
+    'Що відбувається в цьому сценарії':
+        'What happens in this scenario',
+    '— виберіть готовий сценарій —':
+        '— choose a ready-made scenario —',
+    'Без відмов':
+        'Without faults',
+    'З відмовами (щоб порівняти з нормальною роботою)':
+        'With faults (to compare with normal operation)',
+    "Виправте помилки в даних (див. «Підсумок перед запуском» унизу) – тоді тут з'явиться пояснення сценарію.":
+        'Fix the data errors (see “Summary before run” below) – then an explanation of the scenario will appear here.',
+    'Висновок простими словами':
+        'Conclusion in plain words',
+    'Боривітер: 6 типів подій, без відмов':
+        'Boryviter: 6 event types, no faults',
+    "Бортовий обчислювач супутника «Боривітер» у нормальній роботі: 3 типи жорстких подій (орієнтація ADCS, команди приводам) і 3 типи м'яких (команди з Землі, моніторинг живлення, телеметрія). Значення ілюстративні (на основі розділу 1), не виміряні. Для датчиків ADCS задано обмеження «4 з 5»: з будь-яких 5 опитувань поспіль хоча б 4 – вчасно.":
+        'On-board computer of the “Boryviter” satellite in normal operation: 3 hard event types (ADCS attitude control, actuator commands) and 3 soft ones (ground commands, power monitoring, telemetry). Values are illustrative (based on chapter 1), not measured. ADCS sensors have the constraint “4 of 5”: in any 5 consecutive polls at least 4 are on time.',
+    'Боривітер + відмова: повільні датчики ADCS':
+        'Boryviter + fault: slow ADCS sensors',
+    'Той самий «Боривітер», але з 20-ї по 40-ву секунду 30 % опитувань датчиків ADCS тривають у 2,5 раза довше (повтори обміну по шині I2C). Питання: що буде, коли збій стається в самій жорсткій задачі. Значення ілюстративні. Для датчиків ADCS задано обмеження «4 з 5»: з будь-яких 5 опитувань поспіль хоча б 4 – вчасно.':
+        'The same “Boryviter”, but from 20 to 40 s, 30 % of ADCS sensor polls take 2.5 times longer (I2C bus retries). Question: what happens when the failure is in a hard task itself. Values are illustrative. ADCS sensors have the constraint “4 of 5”: in any 5 consecutive polls at least 4 are on time.',
+    'Боривітер + відмова: шторм переривань UART':
+        'Boryviter + fault: UART interrupt storm',
+    'Той самий «Боривітер», але з 20-ї по 25-ту секунду несправна лінія UART видає хибні переривання (20 на мс, по 0,03 мс кожне). Питання: чи захистить пріоритет жорсткі задачі. Значення ілюстративні. Для датчиків ADCS задано обмеження «4 з 5»: з будь-яких 5 опитувань поспіль хоча б 4 – вчасно.':
+        'The same “Boryviter”, but from 20 to 25 s a faulty UART line produces spurious interrupts (20 per ms, 0.03 ms each). Question: will priority protect the hard tasks. Values are illustrative. ADCS sensors have the constraint “4 of 5”: in any 5 consecutive polls at least 4 are on time.',
+    'Базовий сценарій статті: 2 типи подій':
+        'Baseline scenario from the paper: 2 event types',
+    "Найпростіша модель зі статті: один тип жорстких і один тип м'яких подій (s2 = 0,5 мс) – те саме, що один стовпець таблиці параметрів.":
+        'The simplest model from the paper: one hard and one soft event type (s2 = 0.5 ms) – the same as one column of the parameter table.',
+    'Відмова ({f}) не встигла початися – моделювання закінчилося раніше. Збільште N, щоб модельний час охопив інтервал відмови.':
+        'The fault ({f}) never started – the simulation ended earlier. Increase N so that model time covers the fault interval.',
+    ' (частка запізнень {p})':
+        ' (share of late events {p})',
+    ' (частка запізнень від {a} до {b})':
+        ' (share of late events from {a} to {b})',
+    'у всіх сценаріях':
+        'in all scenarios',
+    'у сценаріях {s}':
+        'in scenarios {s}',
+    'Жорсткі дедлайни (ЖРЧ) порушуються {w}':
+        'Hard deadlines (HRT) are missed {w}',
+    "М'які дедлайни (МРЧ) порушуються {w}":
+        'Soft deadlines (SRT) are missed {w}',
+    'у всіх змодельованих сценаріях':
+        'in all simulated scenarios',
+    'повільна обробка {t}':
+        'slow processing of {t}',
+    'шторм переривань':
+        'interrupt storm',
+    'перевантаження':
+        'overloaded',
+    'Після запуску порівняйте таблицю «Під час дії відмов» з основною. Щоб побачити вплив відмови, запустіть сценарій ще раз без неї (зніміть галочку) і порівняйте обидва запуски в «Історії».':
+        'After the run, compare the “During faults” table with the main one. To see the effect of the fault, run the scenario again without it (untick it) and compare both runs in “History”.',
+    'Після запуску головне – «P порушення дедлайну»: для ЖРЧ вона має бути 0.':
+        'After the run the key metric is “P of deadline miss”: for HRT it must be 0.',
+    'типів подій: {h} ЖРЧ, {s} МРЧ':
+        'event types: {h} HRT, {s} SRT',
+    'майже на межі':
+        'almost at the limit',
+    'завантаження процесора – {w}':
+        'processor load – {w}',
+    'від {a} с':
+        'from {a} s',
+    '{n} відмови':
+        '{n} faults',
+    'модельного часу ({n} подій МРЧ)':
+        'of model time ({n} SRT events)',
+    'усіх типів':
+        'all types',
+    'запас невеликий':
+        'little headroom',
+    'запас є':
+        'enough headroom',
+    'під час відмови ({w}, {t})':
+        'during the fault ({w}, {t})',
+    'відмов – нормальна робота':
+        'faults – normal operation',
+    'Відмова {f} почнеться вже після кінця моделювання (≈ {t} с) – збільште N.':
+        'Fault {f} starts after the simulation ends (≈ {t} s) – increase N.',
+    'Моделювання закінчиться раніше, ніж відмова {f} (≈ {t} с).':
+        'The simulation ends before fault {f} does (≈ {t} s).',
+    'Система з будь-якою кількістю типів подій і з відмовами. Виберіть готовий сценарій (праворуч) → за потреби змініть числа → «Запустити». Підказки – на заголовках стовпців.':
+        'A system with any number of event types and with faults. Choose a ready-made scenario (on the right) → change the numbers if needed → “Run”. Hints are on the column headers.',
+    'Коротко про сценарій':
+        'Scenario at a glance',
+    'Під час відмови процесор не встигає – черги ростимуть, поки вона діє.':
+        'During the fault the processor cannot keep up – queues will grow while it lasts.',
+    'Виберіть сценарій → за потреби змініть числа → «Запустити».':
+        'Choose a scenario → change the numbers if needed → “Run”.',
+    'під час відмови: {w}, {t}':
+        'during the fault: {w}, {t}',
+    'шторм':
+        'storm',
+    # --- v4.5: (m, n), додаткові показники, порівняння з теорією ---
+    '«{m} з {n}»':
+        '“{m} of {n}”',
+    '{t}: обмеження {r} виконується – у будь-яких {n} подіях поспіль пропусків не більше {k}.':
+        '{t}: constraint {r} holds – any {n} consecutive events have at most {k} misses.',
+    '{t}: обмеження {r} порушується у {p} вікон (у найгіршому вікні {w} пропусків з {n}, допустимо {k}).':
+        '{t}: constraint {r} is violated in {p} of windows (worst window: {w} misses of {n}, allowed {k}).',
+    'm з n':
+        'm of n',
+    'Обмеження weakly hard (m, n): з будь-яких n подій поспіль хоча б m мають бути оброблені вчасно.\nНаприклад, «4 з 5» – допускається не більше 1 пропуску дедлайну на 5 подій. Порожньо – без обмеження.':
+        'Weakly hard constraint (m, n): in any n consecutive events at least m must be processed on time.\nFor example, “4 of 5” allows at most 1 deadline miss per 5 events. Empty – no constraint.',
+    '{m} з {n}':
+        '{m} of {n}',
+    '«{n}»: WCET':
+        '“{n}”: WCET',
+    '«{n}»: m з n – введіть два цілі числа, наприклад «4 з 5»':
+        '“{n}”: m of n – enter two whole numbers, e.g. “4 of 5”',
+    'Системні показники':
+        'System metrics',
+    'U, H, U_os і η – за формулами розділу 1; максимальні довжини черг – за моделюванням.':
+        'U, H, U_os and η – from the chapter 1 formulas; maximum queue lengths – from the simulation.',
+    'Додаткові показники':
+        'Additional metrics',
+    'Показники розділу 1, яких немає серед 18 основних. «Мін. дедлайн для P ≤ 5 %» – найменший дедлайн, за якого запізнюється не більше 5 % подій (формула 2.26).':
+        'Chapter 1 metrics that are not among the 18 main ones. “Min. deadline for P ≤ 5 %” is the smallest deadline at which at most 5 % of events are late (formula 2.26).',
+    'Порівняння з теорією':
+        'Comparison with theory',
+    'Середній час перебування подій МРЧ: імітаційне моделювання і три наближення класичної теорії масового обслуговування (розділ 2, п. 2.5.2). Точної формули для моделі з трьома чергами немає, тому відхилення очікувані: наближення 1 занижує, наближення 3 завищує.':
+        'Mean sojourn time of SRT events: simulation and three approximations of classical queueing theory (chapter 2, section 2.5.2). There is no exact formula for the three-queue model, so deviations are expected: approximation 1 underestimates, approximation 3 overestimates.',
+    'Наближення 1: Поллачек–Хінчин, без пріоритетів':
+        'Approximation 1: Pollaczek–Khinchine, no priorities',
+    'Наближення 2: Кобгем, відносний пріоритет':
+        'Approximation 2: Cobham, non-preemptive priority',
+    'Наближення 3: абсолютний пріоритет з дообслуговуванням':
+        'Approximation 3: preemptive-resume priority',
+    'Мін. дедлайн для P ≤ 5 % (95-й перцентиль), мс':
+        'Min. deadline for P ≤ 5 % (95th percentile), ms',
+    'Мін. дедлайн для P ≤ 1 % (99-й перцентиль), мс':
+        'Min. deadline for P ≤ 1 % (99th percentile), ms',
+    'Макс. час реакції (WCRT), мс':
+        'Max. response time (WCRT), ms',
+    'Джиттер часу реакції (макс. − мін.), мс':
+        'Response time jitter (max − min), ms',
+    'Найбільше пропусків дедлайну поспіль':
+        'Most consecutive deadline misses',
+    'Коефіцієнт готовності (без очікування)':
+        'Readiness factor (no waiting)',
+    '(m, n): найбільше пропусків в одному вікні з n подій':
+        '(m, n): most misses in one window of n events',
+    '(m, n): частка вікон, де обмеження порушено':
+        '(m, n): share of windows violating the constraint',
+    '(m, n): частка прогонів без жодного порушення':
+        '(m, n): share of runs with no violation',
+    'Завантаження процесора U':
+        'Processor utilization U',
+    'Запас потужності H = 1 − U':
+        'Headroom H = 1 − U',
+    'Накладні витрати ОС U_os':
+        'OS overhead U_os',
+    'Ефективність планування η = (U − U_os) / U':
+        'Scheduling efficiency η = (U − U_os) / U',
+    'Макс. довжина черги Q0 (ISR)':
+        'Max. queue length Q0 (ISR)',
+    'Макс. довжина черги QH (ЖРЧ)':
+        'Max. queue length QH (HRT)',
+    'Макс. довжина черги QS (МРЧ)':
+        'Max. queue length QS (SRT)',
+    'МРЧ: мін. дедлайн для P ≤ 5 %, мс':
+        'SRT: min. deadline for P ≤ 5 %, ms',
+    'МРЧ: мін. дедлайн для P ≤ 1 %, мс':
+        'SRT: min. deadline for P ≤ 1 %, ms',
+    'ЖРЧ: мін. дедлайн для P ≤ 1 %, мс':
+        'HRT: min. deadline for P ≤ 1 %, ms',
+    'МРЧ: джиттер часу реакції, мс':
+        'SRT: response time jitter, ms',
+    'ЖРЧ: джиттер часу реакції, мс':
+        'HRT: response time jitter, ms',
+    'МРЧ: найбільше пропусків дедлайну поспіль':
+        'SRT: most consecutive deadline misses',
+    'ЖРЧ: найбільше пропусків дедлайну поспіль':
+        'HRT: most consecutive deadline misses',
+    'МРЧ: коефіцієнт готовності':
+        'SRT: readiness factor',
+    'ЖРЧ: коефіцієнт готовності':
+        'HRT: readiness factor',
+    'Імітаційне моделювання, мс':
+        'Simulation, ms',
+    'Додаткові_показники':
+        'Additional_metrics',
+    'Порівняння_з_теорією':
+        'Theory_comparison',
+    'Системні_показники':
+        'System_metrics',
+    'відхилення, %':
+        'deviation, %',
+    'с':
+        's',
 }

@@ -25,7 +25,7 @@ from ui.page_excel import ExcelPage
 from ui.page_history import HistoryPage
 from ui.page_results import ResultsPage
 from ui.page_scenario import ScenarioPage
-from ui.widgets import Card, PageHeader, Worker, button, muted, refresh_icons, set_icon
+from ui.widgets import Card, PageHeader, Worker, button, muted, refresh_icons, set_icon, pad_spin
 from ui.icons import icon
 from ui.page_home import AboutDialog, HomePage
 from ui.i18n import is_en, tr, tr_msg
@@ -87,10 +87,12 @@ class MainWindow(QMainWindow):
         form.setContentsMargins(10, 6, 10, 6)
         form.setHorizontalSpacing(8)
         self.r_spin = QSpinBox()
+        pad_spin(self.r_spin)
         self.r_spin.setRange(1, 200)
         self.r_spin.setValue(int(self.settings.value("replications", Config.DEFAULT_REPLICATIONS)))
         self.r_spin.setToolTip(tr("Кількість незалежних прогонів R. Більше – вужчий довірчий інтервал, довше рахує."))
         self.seed_spin = QSpinBox()
+        pad_spin(self.seed_spin)
         self.seed_spin.setRange(0, 2_000_000_000)
         self.seed_spin.setValue(int(self.settings.value("seed", Config.DEFAULT_SEED)))
         self.seed_spin.setToolTip(tr("Початкове значення генератора. Той самий seed – ті самі результати."))

@@ -66,6 +66,8 @@ _MSG = [
      r"Type “\1”: deadline \2 ms < s1 + T = \3 ms – unreachable."),
     (r"Тип «(.+?)»: обробка \((\S+) мс\) не встигає до наступної події \(період (\S+) мс\)\.",
      r"Type “\1”: processing (\2 ms) does not finish before the next event (period \3 ms)."),
+    (r"Тип «(.+?)»: для обмеження \(m, n\) потрібно задати обидва числа\.", r"Type “\1”: both numbers of the (m, n) constraint are required."),
+    (r"Тип «(.+?)»: обмеження \(m, n\) має задовольняти 1 ≤ m ≤ n ≤ 10000\.", r"Type “\1”: the (m, n) constraint must satisfy 1 ≤ m ≤ n ≤ 10000."),
     (r"Відмова «(.+?)»: тип має бути storm або overrun\.", r"Fault “\1”: kind must be storm or overrun."),
     (r"Відмова «(.+?)»: некоректний інтервал дії\.", r"Fault “\1”: invalid time interval."),
     (r"Відмова «(.+?)»: інтенсивність шторму має бути більшою за 0\.", r"Fault “\1”: storm rate must be greater than 0."),

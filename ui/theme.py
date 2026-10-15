@@ -97,6 +97,11 @@ QLabel#CardTitle {{ font-size: 11pt; font-weight: 600; color: {c['text']}; }}
 QLabel#Muted {{ color: {c['muted']}; }}
 QLabel#Hint {{ color: {c['muted']}; font-size: 9pt; }}
 QLabel#BigNumber {{ font-size: 20pt; font-weight: 600; }}
+QFrame#Fact {{ background: {c['surface2']}; border: 1px solid {c['border']}; border-radius: 10px; }}
+QLabel#FactValue {{ font-size: 15pt; font-weight: 600; color: {c['text']}; }}
+QLabel#FactValue[level="ok"] {{ color: {c['ok']}; }}
+QLabel#FactValue[level="warn"] {{ color: {c['warn']}; }}
+QLabel#FactValue[level="err"] {{ color: {c['err']}; }}
 
 /* ---- Картки ---- */
 QFrame#Card {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 12px; }}
@@ -138,7 +143,7 @@ QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid {c['border'
 QCheckBox::indicator:hover {{ border-color: {c['accent']}; }}
 QCheckBox::indicator:checked {{ background: {c['accent']}; border-color: {c['accent']}; }}
 QCheckBox::indicator:checked {{ image: url({check}); }}
-QAbstractSpinBox {{ padding-right: 20px; }}
+QAbstractSpinBox {{ padding-top: 3px; padding-bottom: 3px; padding-right: 20px; }}
 QAbstractSpinBox::up-button {{ subcontrol-origin: border; subcontrol-position: top right; width: 18px;
     border: none; background: transparent; }}
 QAbstractSpinBox::down-button {{ subcontrol-origin: border; subcontrol-position: bottom right; width: 18px;

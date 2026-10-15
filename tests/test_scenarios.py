@@ -23,9 +23,25 @@ LEGACY = [
 @pytest.mark.parametrize("p", LEGACY)
 def test_engine_matches_legacy_exactly(p):
     old = PriorityQueueSimulation(seed=3).run_simulation_priority2_full(**p)
-    new = EventSimulation(seed=3).run(Scenario.from_legacy(p))['classic']
-    for k in old:
+    out = EventSimulation(seed=3).run(Scenario.from_legacy(p))
+    new = out['classic']
+    for k in range(1, 19):
         assert new[k] == pytest.approx(old[k], rel=1e-9, abs=1e-12)
+    # додаткові показники (версія 4.5) обох ядер теж збігаються
+    sc = Scenario.from_legacy(p)
+    names = {et.cls: et.name for et in sc.event_types}
+    pairs = [('srt', SRT), ('hrt', HRT)]
+    for pre, cls in pairs:
+        if f'{pre}_p95' not in old:
+            continue
+        t = out['per_type'][names[cls]]
+        assert t['sojourn_p95'] == pytest.approx(old[f'{pre}_p95'], rel=1e-9, abs=1e-12)
+        assert t['sojourn_p99'] == pytest.approx(old[f'{pre}_p99'], rel=1e-9, abs=1e-12)
+        assert t['jitter'] == pytest.approx(old[f'{pre}_jitter'], rel=1e-9, abs=1e-12)
+        assert t['max_consec_miss'] == old[f'{pre}_consec']
+        assert t['readiness'] == pytest.approx(old[f'{pre}_ready'], abs=1e-12)
+    for k in ('q0_max', 'qs_max', 'qh_max'):
+        assert out['system'][k] == old[k]
 
 
 # ---------- Формат JSON ----------
