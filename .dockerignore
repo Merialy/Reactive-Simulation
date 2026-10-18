@@ -7,8 +7,10 @@ __pycache__/
 .venv/
 venv/
 data/
-Експорт_симуляції/
-Графіки_симуляції/
+logs/
+exports/
+plots/
+docs/
 Excel file/
 *.xlsx
 *.xlsm

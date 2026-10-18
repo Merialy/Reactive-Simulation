@@ -191,8 +191,11 @@ class MainWindow(QMainWindow):
         new = "uk" if is_en() else "en"
         self.settings.setValue("lang", new)
         self.settings.sync()
-        ask = ("Мову буде змінено на українську. Перезапустити програму зараз?" if new == "uk" else
-               "The language will be changed to English. Restart the program now?")
+        # повідомлення двома мовами: його читає людина, яка ще бачить стару мову, а перемикає на нову
+        ask = ("Мову буде змінено на українську. Перезапустити програму зараз?\n"
+               "The language will be changed to Ukrainian. Restart the program now?" if new == "uk" else
+               "The language will be changed to English. Restart the program now?\n"
+               "Мову буде змінено на англійську. Перезапустити програму зараз?")
         if QMessageBox.question(self, "🌐", ask) == QMessageBox.StandardButton.Yes:
             if self._worker is not None and self._worker.isRunning():
                 self._worker.terminate()

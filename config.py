@@ -31,8 +31,8 @@ class Config:
     MONGO_URI = "mongodb://localhost:27017"       # можна перевизначити змінною середовища REACTIVE_MONGO_URI
     JSON_STORAGE_DIR = "data"                     # папка запасного сховища
     PLOT_DPI = 300
-    EXPORT_FOLDER = "Експорт_симуляції"
-    PLOTS_FOLDER = "Графіки_симуляції"
+    EXPORT_FOLDER = "exports"                     # куди пропонується зберігати Excel-звіти (не в git)
+    PLOTS_FOLDER = "plots"                        # куди пропонується зберігати PNG-графіки (не в git)
     MIN_ROWS = 8
     MIN_COLS = 2
     # Допустимі межі параметрів (мін, макс); час – мс, інтенсивність – мс⁻¹

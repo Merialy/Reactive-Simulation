@@ -59,8 +59,12 @@ def main(argv=None):
         print(f"{doc['scenario_name']}  ({doc['created_at']}, R={doc['settings'].get('replications')})")
         for t in doc.get("per_type", []):
             m = t["metrics"]
-            print(f"  {t['name']:<28} [{t['class']}]  T_сер = {m['sojourn_mean']['mean']:.4g} мс,"
-                  f"  p99 = {m['sojourn_p99']['mean']:.4g} мс,  P_miss = {m['p_miss']['mean']:.4g}")
+            g = lambda k: (m.get(k) or {}).get("mean", float("nan"))
+            print(f"  {t['name']:<28} [{t['class']}]  T_сер = {g('sojourn_mean'):.4g} мс,"
+                  f"  p99 = {g('sojourn_p99'):.4g} мс,  P_miss = {g('p_miss'):.4g}")
+        if not doc.get("per_type"):                      # серія з таблиці параметрів – 18 показників
+            for c in doc.get("classic", []):
+                print(f"  {c['metric']:>2}. {c['name']:<55} {c['mean']:.4g} ± {c['ci']:.2g}")
     return 0
 
 

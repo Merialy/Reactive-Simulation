@@ -132,6 +132,8 @@ docker compose up -d
 Адреса бази — `MONGO_URI` у `config.py` або змінна середовища `REACTIVE_MONGO_URI`.
 Вміст зручно переглядати в MongoDB Compass (`mongodb://localhost:27017`).
 
+Перевірка роботи з базою (тимчасова база, робочу лише читає): `python tools/check_mongodb.py` → звіт у `logs/mongodb_check.txt`.
+
 ---
 
 ## Тести

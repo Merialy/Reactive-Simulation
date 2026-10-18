@@ -15,7 +15,7 @@ import pandas as pd
 
 from config import Config
 from simulation.validation import check_params, utilization
-from ui.i18n import is_en, tr, tr_msg
+from ui.i18n import is_en, tr, tr_msg, tr_name
 
 PARAM_KEYS = Config.PARAM_NAMES                       # lambda1, s1, s2, N, D1, lambda2, s2b, D2
 PARAM_SHORT = [tr("λ1, мс⁻¹"), tr("s1, мс"), tr("s2, мс"), "N", tr("D1, мс"), tr("λ2, мс⁻¹"), tr("s2b, мс"), tr("D2, мс")]
@@ -78,6 +78,46 @@ def type_label(cls, name: str, sep: str = " · ") -> str:
     c = cls_name(cls)
     n = tr(name) if name in ("МРЧ", "ЖРЧ") else name
     return c if n == c else f"{c}{sep}{n}"
+
+
+def localize_scenario(scenario):
+    """
+    Готовий сценарій англійською: назви сценарію, типів подій і відмов перекладаються (якщо вони
+    відомі словнику). Повертає (копія сценарію, словник «англійська назва → українська») – його
+    передають у delocalize_scenario перед збереженням, щоб у файлі лишились початкові назви.
+    """
+    import copy
+    sc = copy.deepcopy(scenario)
+    back = {}
+
+    def t(text):
+        new = tr_name(text)
+        if new != text:
+            back[new] = text
+        return new
+
+    sc.name, sc.description = t(sc.name), t(sc.description)
+    for et in sc.event_types:
+        et.name = t(et.name)
+    for f in sc.faults:
+        f.name = t(f.name) if f.name else f.name
+        f.target = t(f.target) if f.target else f.target
+    return sc, back
+
+
+def delocalize_scenario(scenario, back: Dict[str, str]):
+    """Повертає назви, змінені localize_scenario, до початкових (перед записом у файл)."""
+    if not back:
+        return scenario
+    import copy
+    sc = copy.deepcopy(scenario)
+    b = lambda x: back.get(x, x) if x else x
+    sc.name, sc.description = b(sc.name), b(sc.description)
+    for et in sc.event_types:
+        et.name = b(et.name)
+    for f in sc.faults:
+        f.name, f.target = b(f.name), b(f.target)
+    return sc
 
 
 def parse_number(text) -> Optional[float]:
@@ -309,8 +349,8 @@ def export_batch_excel(path: str, table: ParamTable, batch: List[Optional[Dict]]
             extra.iloc[i, c] = extra_value(res, plist[c], key)[0]
     theory = pd.DataFrame([vals for _, vals in theory_table(plist, batch)],
                           index=[lab.strip() for lab, _ in theory_table(plist, batch)], columns=names)
-    notes = [(names[c], tr("ПОМИЛКА"), t) for c, t in errors.items()] + \
-            [(names[c], tr("Попередження"), w) for c, ws in warnings.items() for w in ws]
+    notes = [(names[c], tr("ПОМИЛКА"), tr_msg(t)) for c, t in errors.items()] + \
+            [(names[c], tr("Попередження"), tr_msg(w)) for c, ws in warnings.items() for w in ws]
     with pd.ExcelWriter(path, engine="openpyxl") as xw:
         params.to_excel(xw, sheet_name=tr("Параметри"))
         mean.to_excel(xw, sheet_name=tr("Результати"))
@@ -459,6 +499,10 @@ FAULT_ROWS = [
 ]
 
 
+BG_MODE_NAMES = {"none": tr("немає"), "periodic": tr("періодично"), "poisson": tr("випадково"),
+                 "continuous": tr("постійно")}
+
+
 def export_scenario_excel(path: str, scenario, res: Dict, settings: Dict):
     """Звіт для сценарію з кількома типами подій (і відмовами)."""
     names = [et.name for et in scenario.event_types]
@@ -482,7 +526,7 @@ def export_scenario_excel(path: str, scenario, res: Dict, settings: Dict):
     extra = [(tr("Сценарій"), scenario.name), (tr("U (без відмов)"), round(scenario.utilization(), 4))]
     if scenario.has_background():
         b = scenario.background
-        extra += [(tr("Фонові задачі"), b.mode), (tr("Фонові задачі: інтервал, мс"), b.interval_ms),
+        extra += [(tr("Фонові задачі"), BG_MODE_NAMES.get(b.mode, b.mode)), (tr("Фонові задачі: інтервал, мс"), b.interval_ms),
                   (tr("Фонові задачі: робота, мс"), b.work_ms), ("t_cs, " + tr("мс"), b.t_cs_ms),
                   ("t_id, " + tr("мс"), b.crit_ms), (tr("Частка в критичних секціях"), b.crit_share)]
     if scenario.active_faults():

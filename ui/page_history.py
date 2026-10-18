@@ -109,9 +109,16 @@ class HistoryPage(QWidget):
         if not ids:
             self.banner.show_message(tr("Виділіть рядок у таблиці."), "warn")
             return
-        doc = self.get_repo().get_result(ids[0])
+        try:
+            doc = self.get_repo().get_result(ids[0])
+        except Exception as e:                       # наприклад, MongoDB зупинили під час роботи
+            self.banner.show_message(tr("Не вдалося прочитати сховище: {e}", e=e), "err")
+            return
         if doc:
             self.open_result.emit(doc)
+        else:
+            self.banner.show_message(tr("Результат не знайдено – можливо, його вже видалено."), "warn")
+            self.reload()
 
     def delete_selected(self):
         ids = self._selected_ids()
@@ -122,8 +129,12 @@ class HistoryPage(QWidget):
                                 tr("Видалити результатів зі сховища: {n}? Цю дію не можна скасувати.", n=len(ids))) \
                 != QMessageBox.StandardButton.Yes:
             return
-        repo = self.get_repo()
-        n = sum(1 for i in ids if repo.delete_result(i))
+        try:
+            repo = self.get_repo()
+            n = sum(1 for i in ids if repo.delete_result(i))
+        except Exception as e:
+            self.banner.show_message(tr("Не вдалося прочитати сховище: {e}", e=e), "err")
+            return
         self.reload()
         self.banner.show_message(tr("Видалено: {n}.", n=n), "ok")
 
@@ -132,8 +143,12 @@ class HistoryPage(QWidget):
         if len(ids) < 2:
             self.banner.show_message(tr("Для порівняння виділіть щонайменше два рядки (Ctrl + клік)."), "warn")
             return
-        repo = self.get_repo()
-        docs = [d for d in (repo.get_result(i) for i in ids[:8]) if d]
+        try:
+            repo = self.get_repo()
+            docs = [d for d in (repo.get_result(i) for i in ids[:8]) if d]
+        except Exception as e:
+            self.banner.show_message(tr("Не вдалося прочитати сховище: {e}", e=e), "err")
+            return
         CompareDialog(docs, self).exec()
 
 

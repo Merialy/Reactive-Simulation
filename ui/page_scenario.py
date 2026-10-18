@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QFileDia
 
 from simulation.model import (BG_CONTINUOUS, BG_NONE, BG_PERIODIC, BG_POISSON, HRT, OVERRUN, PERIODIC, POISSON, SRT,
                               STORM, Background, EventType, Fault, Platform, Scenario)
-from ui.core import comma, fmt, parse_number
+from ui.core import comma, delocalize_scenario, fmt, localize_scenario, parse_number
 from html import escape
 
 from ui.explain import scenario_facts
@@ -340,6 +340,8 @@ class ScenarioPage(QWidget):
         except Exception as e:
             self.banner.show_message(tr("Не вдалося відкрити сценарій: {e}", e=e), "err")
             return False
+        # англійською – назви готових сценаріїв перекладаються; у файл повертаються початкові
+        sc, self._back = localize_scenario(sc)
         self.path = path
         self.set_scenario(sc)
         idx = self.combo.findData(path)
@@ -629,6 +631,7 @@ class ScenarioPage(QWidget):
 
     def new_scenario(self):
         self.path = None
+        self._back = {}
         sc = Scenario(name=tr("Новий сценарій"), platform=Platform(name=tr("БО"), t_irq_ms=0.01),
                       event_types=[EventType(name=tr("МРЧ"), cls=SRT, rate=1.0, wcet_ms=0.5, deadline_ms=1.0),
                                    EventType(name=tr("ЖРЧ"), cls=HRT, rate=2.0, wcet_ms=0.1, deadline_ms=0.2)],
@@ -656,7 +659,7 @@ class ScenarioPage(QWidget):
         if not path.lower().endswith(".json"):
             path += ".json"
         try:
-            sc.save(path)
+            delocalize_scenario(sc, getattr(self, "_back", {})).save(path)
             self.path = path
             self.reload_list()
             i = self.combo.findData(path)

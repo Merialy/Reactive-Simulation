@@ -460,6 +460,12 @@ class ResultsPage(QWidget):
         self.concl_card.setVisible(False)
         for w in (self.system_card, self.extra_card, self.theory_card):
             w.setVisible(False)
+        if d.get("system") and d.get("scenario"):            # системні показники, збережені разом з результатом
+            try:
+                from simulation.model import Scenario
+                self._fill_system(Scenario.from_dict(d["scenario"]), {"system": d["system"]})
+            except Exception:
+                self.system_card.setVisible(False)
 
     # ------------------------------------------------------------------
     def save_to_db(self):
@@ -479,7 +485,8 @@ class ResultsPage(QWidget):
                         continue
                     sc = Scenario.from_legacy(p, name=f"{source} – " + tr("сценарій {n}", n=c))
                     sid = repo.save_scenario(sc)
-                    _, is_new = repo.save_result_checked(sc, {"mean": res["mean"], "ci": res["ci"]}, settings,
+                    keep = {k: res[k] for k in ("mean", "ci", "extra") if res.get(k)}   # без окремих прогонів
+                    _, is_new = repo.save_result_checked(sc, keep, settings,
                                                          scenario_id=sid, tags=[source])
                     new += is_new
                     same += not is_new

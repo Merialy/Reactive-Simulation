@@ -19,6 +19,68 @@ import traceback
 
 OUT = os.path.join("docs", "screens_en" if "--en" in sys.argv else "screens")
 LOG = []
+LANG_ISSUES = {}          # фрагмент тексту → знімки, де він трапився
+
+# Перевірка мови: в англійському інтерфейсі не має бути кирилиці, а в українському – англійських слів
+# (крім термінів і назв, наведених нижче).
+_CYR = __import__("re").compile(r"[А-Яа-яІіЇїЄєҐґ][^\n]*")
+_LAT = __import__("re").compile(r"\b[A-Za-z]{3,}\b")
+_KEEP_EN = {"ADCS", "WCET", "WCRT", "BCET", "ACET", "UART", "EPS", "ISR", "FIFO", "MongoDB", "JSON", "json", "Excel",
+            "xlsx", "xls", "PNG", "png", "Seed", "seed", "English", "Python", "PySide", "NumPy", "pandas", "Matplotlib",
+            "openpyxl", "pytest", "Docker", "mongodb", "localhost", "KhAI", "SD", "OSRT", "HRT", "SRT", "CPU",
+            "max", "min", "id", "core", "IRQ", "clk", "BG", "cs", "os", "miss", "succ", "TestFile", "file", "Ctrl",
+            "periodic", "poisson", "storm", "overrun", "MHz", "NKK", "SRT", "Fusion", "data", "logs", "screens"}
+
+
+def lang_scan(name, root):
+    """Збирає всі видимі тексти вікна (підписи, кнопки, підказки, таблиці, списки, графіки)."""
+    from PySide6.QtWidgets import (QAbstractButton, QComboBox, QGroupBox, QLabel, QLineEdit, QTableWidget,
+                                   QWidget, QPlainTextEdit, QTextEdit)
+    from ui.i18n import is_en
+    texts = []
+    for wd in [root] + root.findChildren(QWidget):
+        try:
+            if not wd.isVisibleTo(root) and wd is not root:
+                continue
+            texts.append(wd.toolTip())
+            if isinstance(wd, (QLabel, QAbstractButton)):
+                texts.append(wd.text())
+            if isinstance(wd, QGroupBox):
+                texts.append(wd.title())
+            if isinstance(wd, QLineEdit):
+                texts += [wd.placeholderText()]
+            if isinstance(wd, (QPlainTextEdit, QTextEdit)):
+                texts.append(wd.toPlainText())
+            if isinstance(wd, QComboBox):
+                texts += [wd.itemText(i) for i in range(wd.count())]
+                texts += [str(wd.itemData(i, 3) or "") for i in range(wd.count())]      # підказки пунктів
+            if isinstance(wd, QTableWidget):
+                for r in range(wd.rowCount()):
+                    h = wd.verticalHeaderItem(r)
+                    texts.append(h.text() if h else "")
+                    for c in range(wd.columnCount()):
+                        it = wd.item(r, c)
+                        if it:
+                            texts += [it.text(), it.toolTip()]
+                for c in range(wd.columnCount()):
+                    h = wd.horizontalHeaderItem(c)
+                    if h:
+                        texts += [h.text(), h.toolTip()]
+            fig = getattr(wd, "figure", None)
+            if fig is not None:
+                from matplotlib.text import Text
+                texts += [t.get_text() for t in fig.findobj(Text)]
+        except Exception:
+            pass
+    import re
+    for t in texts:
+        t = re.sub(r"<[^>]+>", " ", str(t or ""))
+        if is_en():
+            frags = [f.strip() for f in _CYR.findall(t)]
+        else:
+            frags = [w for w in _LAT.findall(t) if w not in _KEEP_EN]
+        for f in frags:
+            LANG_ISSUES.setdefault(f[:150], set()).add(name)
 
 
 def log(msg):
@@ -62,6 +124,7 @@ def main():
     def shot(name, widget=None):
         pump(0.4)
         (widget or w).grab().save(os.path.join(OUT, name + ".png"))
+        lang_scan(name, widget or w)
         log(f"  знімок {name}.png")
 
     def wait_worker(limit=600):
@@ -238,6 +301,30 @@ def main():
         finally:
             QMessageBox.question = ask
     step("9. Стартовий екран з результатами, «Про програму», очищення таблиці", about_clear)
+
+    def all_scenarios():
+        for p in sorted(glob.glob(os.path.join("scenarios", "*.json"))):
+            w.go("scenario")
+            assert w.scenario.load(p), p
+            lang_scan("scenario:" + os.path.basename(p), w)
+        w.go("charts")
+        for i in range(w.charts.cb1.count()):
+            w.charts.cb1.setCurrentIndex(i)
+            pump(0.3)
+            lang_scan(f"charts:{i}", w)
+        for key in ("home", "excel", "results", "history"):
+            w.go(key)
+            pump(0.3)
+            lang_scan("page:" + key, w)
+    step("10. Перевірка мови на всіх готових сценаріях і графіках", all_scenarios)
+
+    report = os.path.join(OUT, "language_check.txt")
+    with open(report, "w", encoding="utf-8") as f:
+        what = "Кирилиця в англійському інтерфейсі" if "--en" in sys.argv else "Англійські слова в українському інтерфейсі"
+        f.write(f"{what}: {len(LANG_ISSUES)}\n\n")
+        for frag, where in sorted(LANG_ISSUES.items()):
+            f.write(f"{frag}    ← {', '.join(sorted(where)[:4])}\n")
+    log(f"Перевірка мови: знайдено {len(LANG_ISSUES)} фрагментів, список у {report}")
 
     errors += len(slot_errors)
     log(f"ГОТОВО. Помилок: {errors}. Знімки і журнал: {os.path.abspath(OUT)}")

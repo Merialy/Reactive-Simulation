@@ -9,14 +9,16 @@
 """
 LANG = "uk"
 EN = {}
+NAMES = {}
 
 
 def set_lang(lang: str):
     global LANG
     LANG = "en" if lang == "en" else "uk"
     if LANG == "en" and not EN:
-        from ui.i18n_en import EN as _EN
+        from ui.i18n_en import EN as _EN, NAMES as _NAMES
         EN.update(_EN)
+        NAMES.update(_NAMES)
 
 
 def tr(text: str, **kw) -> str:
@@ -26,6 +28,13 @@ def tr(text: str, **kw) -> str:
 
 def is_en() -> bool:
     return LANG == "en"
+
+
+def tr_name(text: str) -> str:
+    """Назва з готового сценарію (тип подій, відмова, сценарій) – англійською, якщо вона відома."""
+    if LANG != "en" or not text:
+        return text
+    return NAMES.get(text) or EN.get(text) or text
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +58,7 @@ _MSG = [
      r"N = \1 < 1000: metric estimates may be unstable."),
     (r"λ1 має бути більшою за 0\.", r"λ1 must be greater than 0."),
     (r"λ2 не може бути від'ємною\.", r"λ2 cannot be negative."),
-    (r"(\S+) має бути більшою за 0\.", r"\1 must be greater than 0."),
+    (r"^(s1|s2|s2b|D1|D2|λ1|λ2) має бути більшою за 0\.", r"\1 must be greater than 0."),
     (r"N має бути не меншою за 1\.", r"N must be at least 1."),
     (r"Сценарій не містить жодного типу подій\.", r"The scenario contains no event types."),
     (r"Тривалість первинної обробки має бути більшою за 0\.", r"Primary processing time must be greater than 0."),
@@ -88,6 +97,10 @@ _MSG = [
     (r"від (\S+) мс", r"from \1 ms"),
     (r"(\S+)–(\S+) мс", r"\1–\2 ms"),
     (r"усі типи", r"all types"),
+    (r"λ1 має бути додатною", r"λ1 must be positive"),
+    (r"Кількість прогонів R має бути не меншою за 1\.", r"The number of replications R must be at least 1."),
+    (r"Seed має бути невід'ємним цілим числом \(0, 1, 2, …\)\.", r"Seed must be a non-negative integer (0, 1, 2, …)."),
+    (r"MongoDB недоступна \((.+)\): використовуються JSON-файли\.", r"MongoDB is unavailable (\1): JSON files are used."),
 ]
 _MSG = [(_re.compile(a), b) for a, b in _MSG]
 

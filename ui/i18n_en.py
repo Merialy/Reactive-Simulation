@@ -1205,9 +1205,9 @@ EN = {
     '«{m} з {n}»':
         '“{m} of {n}”',
     '{t}: обмеження {r} виконується – у будь-яких {n} подіях поспіль пропусків не більше {k}.':
-        '{t}: constraint {r} holds – any {n} consecutive events have at most {k} misses.',
+        '{t}: constraint {r} holds – in any {n} consecutive events no more than {k} are late.',
     '{t}: обмеження {r} порушується у {p} вікон (у найгіршому вікні {w} пропусків з {n}, допустимо {k}).':
-        '{t}: constraint {r} is violated in {p} of windows (worst window: {w} misses of {n}, allowed {k}).',
+        '{t}: constraint {r} is violated in {p} of windows (worst window: {w} of {n} late, allowed {k}).',
     'm з n':
         'm of n',
     'Обмеження weakly hard (m, n): з будь-яких n подій поспіль хоча б m мають бути оброблені вчасно.\nНаприклад, «4 з 5» – допускається не більше 1 пропуску дедлайну на 5 подій. Порожньо – без обмеження.':
@@ -1387,4 +1387,25 @@ EN = {
         'Boryviter + background tasks: log writing to SD card',
     'Той самий «Боривітер», але процесор у вільний час записує логи на SD-карту: кожні 100 мс – 20 мс роботи. Перемикання на фонову задачу і назад коштує 5 мкс, а 10 % часу запис іде з вимкненими перериваннями (критичні секції по 0,2 мс). Питання: наскільки фонова задача затримує події реального часу. Значення ілюстративні.':
         'The same “Boryviter”, but in idle time the processor writes logs to an SD card: 20 ms of work every 100 ms. Switching to the background task and back costs 5 μs, and 10 % of the writing runs with interrupts disabled (critical sections of 0.2 ms). Question: how much does the background task delay real-time events. Values are illustrative.',
+    'постійно':
+        'continuous',
+    'Результат не знайдено – можливо, його вже видалено.':
+        'Result not found – it may have been deleted already.',
 }
+
+# Назви з готових сценаріїв (папка scenarios): типи подій і відмови. Використовуються лише для
+# показу англійською (ui.core.localize_scenario); у JSON-файлах назви лишаються українськими.
+NAMES = {
+    'ADCS: датчики': 'ADCS: sensors',
+    'ADCS: закон керування': 'ADCS: control law',
+    'Команди приводам': 'Actuator commands',
+    'Команди НКК (UART)': 'Ground station commands (UART)',
+    'Моніторинг EPS': 'EPS monitoring',
+    'Телеметрія': 'Telemetry',
+    'Шторм переривань UART': 'UART interrupt storm',
+    'Перевищення WCET датчиків ADCS': 'ADCS sensor WCET overrun',
+    'МРЧ': 'SRT',
+    'ЖРЧ': 'HRT',
+    'Боривітер': 'Boryviter',
+}
+
