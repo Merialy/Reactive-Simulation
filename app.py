@@ -1,9 +1,7 @@
 """
-Симулятор моделі реактивності – новий інтерфейс (версія 4.0, Qt / PySide6).
+Симулятор моделі реактивності – графічний інтерфейс (Qt / PySide6).
 
     python app.py
-
-Старий інтерфейс (Tkinter) поки доступний: python main.py
 """
 import multiprocessing
 import os

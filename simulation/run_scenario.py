@@ -40,6 +40,8 @@ def main(argv=None):
     ap.add_argument("--save", action="store_true", help="зберегти сценарій і результат у базу (MongoDB або JSON)")
     ap.add_argument("--tag", action="append", default=[], help="мітка результату, наприклад «серія Е1»")
     args = ap.parse_args(argv)
+    if args.replications < 1 or args.seed < 0:
+        ap.error("R має бути ≥ 1, seed – невід'ємним цілим числом")
 
     sc = Scenario.load(args.path).without_disabled_faults()
     errors, warnings = sc.check()

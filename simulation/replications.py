@@ -14,22 +14,32 @@ from simulation.priority_simulator import PriorityQueueSimulation
 
 METRIC_IDS = list(range(1, 19))
 
-# Квантилі розподілу Стьюдента t(df, 0.975) для 95 % довірчого інтервалу
-_T975 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365,
-         8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 13: 2.160, 14: 2.145,
-         15: 2.131, 16: 2.120, 17: 2.110, 18: 2.101, 19: 2.093, 20: 2.086, 25: 2.060,
-         30: 2.042, 40: 2.021, 60: 2.000, 120: 1.980}
+# Квантилі розподілу Стьюдента t(df, 0.975) для 95 % довірчого інтервалу: точні значення для df ≤ 30,
+# далі – розклад Корніша–Фішера (похибка < 0,0005 для df > 30).
+_T975 = {1: 12.7062, 2: 4.3027, 3: 3.1824, 4: 2.7764, 5: 2.5706, 6: 2.4469, 7: 2.3646, 8: 2.3060, 9: 2.2622,
+         10: 2.2281, 11: 2.2010, 12: 2.1788, 13: 2.1604, 14: 2.1448, 15: 2.1314, 16: 2.1199, 17: 2.1098,
+         18: 2.1009, 19: 2.0930, 20: 2.0860, 21: 2.0796, 22: 2.0739, 23: 2.0687, 24: 2.0639, 25: 2.0595,
+         26: 2.0555, 27: 2.0518, 28: 2.0484, 29: 2.0452, 30: 2.0423}
 
 
 def t_quantile_975(df: int) -> float:
-    """Квантиль t(df, 0.975); для проміжних df береться найближче менше табличне значення."""
+    """Квантиль t(df, 0.975) розподілу Стьюдента."""
     if df <= 0:
         return float('nan')
     if df in _T975:
         return _T975[df]
-    if df > 120:
-        return 1.960
-    return _T975[max(k for k in _T975 if k <= df)]
+    z = 1.959963985
+    v = float(df)
+    return (z + (z ** 3 + z) / (4 * v) + (5 * z ** 5 + 16 * z ** 3 + 3 * z) / (96 * v ** 2)
+            + (3 * z ** 7 + 19 * z ** 5 + 17 * z ** 3 - 15 * z) / (384 * v ** 3))
+
+
+def check_settings(replications, base_seed) -> None:
+    """R ≥ 1 і seed ≥ 0 (генератор NumPy не приймає від'ємних seed)."""
+    if int(replications) < 1:
+        raise ValueError("Кількість прогонів R має бути не меншою за 1.")
+    if int(base_seed) < 0:
+        raise ValueError("Seed має бути невід'ємним цілим числом (0, 1, 2, …).")
 
 
 def summarize(values: List[float]) -> Dict[str, float]:
@@ -53,6 +63,7 @@ def run_replications(params: Dict, replications: int = 5, base_seed: int = 42) -
       'ci'   : {номер_метрики: напівширина 95 % ДІ}
       'runs' : список результатів окремих прогонів
     """
+    check_settings(replications, base_seed)
     replications = max(1, int(replications))
     runs = []
     for r in range(replications):
@@ -101,6 +112,7 @@ def run_batch(param_list, replications: int = 5, base_seed: int = 42,
     import os
     from concurrent.futures import ProcessPoolExecutor, as_completed
 
+    check_settings(replications, base_seed)
     replications = max(1, int(replications))
     tasks = [(i, r, p, base_seed + r)
              for i, p in enumerate(param_list) if p is not None
@@ -167,6 +179,7 @@ def run_scenario_replications(scenario, replications: int = 5, base_seed: int = 
     import os
     from concurrent.futures import ProcessPoolExecutor, as_completed
 
+    check_settings(replications, base_seed)
     replications = max(1, int(replications))
     d = scenario.to_dict()
     tasks = [(d, base_seed + r) for r in range(replications)]

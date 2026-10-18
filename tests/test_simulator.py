@@ -107,3 +107,15 @@ def test_parallel_batch_is_deterministic():
     assert par[1] is None
     assert par[0]['mean'] == seq[0]['mean'] and par[2]['mean'] == seq[2]['mean']
     assert par[0]['mean'] == run_replications(p, replications=3, base_seed=5)['mean']
+
+
+def test_t_quantiles_and_settings():
+    """Квантилі Стьюдента (довідкові значення) і перевірка R та seed (версія 4.7)."""
+    from simulation.replications import t_quantile_975, check_settings
+    for df, q in ((1, 12.706), (4, 2.776), (22, 2.074), (40, 2.021), (60, 2.000), (150, 1.976), (199, 1.972)):
+        assert t_quantile_975(df) == pytest.approx(q, abs=1e-3)
+    check_settings(1, 0)
+    with pytest.raises(ValueError):
+        check_settings(0, 42)
+    with pytest.raises(ValueError):
+        check_settings(5, -1)
