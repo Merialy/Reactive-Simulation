@@ -1298,4 +1298,93 @@ EN = {
         'deviation, %',
     'с':
         's',
+    # --- v4.6: фонові задачі ---
+    'Після запуску подивіться «Макс. час реакції» і «Час блокування» для ЖРЧ. Щоб побачити вплив фонових задач, запустіть сценарій ще раз з режимом «немає» і порівняйте обидва запуски в «Історії».':
+        'After the run look at “Max. response time” and “Blocking time” for HRT. To see the effect of background tasks, run the scenario again with mode “none” and compare both runs in “History”.',
+    'Фонові задачі займали {u} процесора.':
+        'Background tasks used {u} of the processor.',
+    'Одна фонова робота виконувалась у середньому {a} мс (найдовше {m} мс).':
+        'One background job took {a} ms on average (longest {m} ms).',
+    'Критичні секції фонової задачі затримували початок обробки подій до {t} мс (час блокування); перемикання контексту забирало {c} процесора.':
+        'Critical sections of the background task delayed the start of event processing by up to {t} ms (blocking time); context switching took {c} of the processor.',
+    'фонові задачі – увесь вільний час процесора':
+        'background tasks – all idle processor time',
+    'фонові задачі (разом з подіями {t})':
+        'background tasks (together with events {t})',
+    'Її дедлайн {d} мс порушено у {p} випадків.':
+        'Its {d} ms deadline was missed in {p} of cases.',
+    'Перемикання контексту на фонову задачу і назад забирало {c} процесора.':
+        'Context switching to the background task and back took {c} of the processor.',
+    'Фонові задачі':
+        'Background tasks',
+    "Робота з найнижчим пріоритетом (запис логів, самотестування пам'яті): виконується, лише коли немає подій, і переривається будь-якою подією. Затримує події лише через перемикання контексту t_cs і критичні секції з вимкненими перериваннями.":
+        'Lowest-priority work (log writing, memory self-test): runs only when there are no events and is preempted by any event. It delays events only through context switching t_cs and critical sections with interrupts disabled.',
+    "• періодично – кожні «інтервал» мс з'являється робота тривалістю «робота» мс;\n• випадково – робота з'являється в середньому раз на «інтервал» мс;\n• постійно – фонова робота є завжди (найгірший випадок).":
+        '• periodic – every “interval” ms a job of “work” ms appears;\n• random – a job appears on average once every “interval” ms;\n• continuous – background work is always present (worst case).',
+    'постійно (процесор ніколи не простоює)':
+        'continuous (processor never idle)',
+    'Режим':
+        'Mode',
+    'Інтервал, мс':
+        'Interval, ms',
+    'Період (періодично) або середній інтервал (випадково) між фоновими роботами':
+        'Period (periodic) or mean interval (random) between background jobs',
+    'Робота, мс':
+        'Work, ms',
+    'Скільки процесорного часу потребує одна фонова робота':
+        'How much processor time one background job needs',
+    'Допустимий час виконання однієї фонової роботи (порожньо – без дедлайну)':
+        'Allowed completion time of one background job (empty – no deadline)',
+    'Перемикання t_cs, мс':
+        'Context switch t_cs, ms',
+    'Час перемикання контексту, коли подія витісняє фонову задачу, і при поверненні до неї':
+        'Context switch time when an event preempts the background task and when returning to it',
+    'Критична секція t_id, мс':
+        'Critical section t_id, ms',
+    'Тривалість однієї ділянки фонової задачі з вимкненими перериваннями':
+        'Length of one section of the background task with interrupts disabled',
+    'Частка в критичних секціях':
+        'Share in critical sections',
+    'Яку частку свого часу фонова задача працює з вимкненими перериваннями (0…1)':
+        'Share of its time the background task runs with interrupts disabled (0…1)',
+    'Інтервал':
+        'Interval',
+    'Робота':
+        'Work',
+    'Дедлайн':
+        'Deadline',
+    'Фонові задачі – {w}: некоректне число':
+        'Background tasks – {w}: invalid number',
+    'U, H, U_os і η – за формулами розділу 1; решта – за моделюванням.':
+        'U, H, U_os and η – from the chapter 1 formulas; the rest – from the simulation.',
+    'Фонові задачі: частка процесора':
+        'Background tasks: processor share',
+    'Фонові задачі: сер. час виконання роботи, мс':
+        'Background tasks: mean job completion time, ms',
+    'Фонові задачі: макс. час виконання роботи, мс':
+        'Background tasks: max. job completion time, ms',
+    'Фонові задачі: ймовірність порушення дедлайну':
+        'Background tasks: deadline miss probability',
+    'Фонові задачі: макс. робіт у черзі':
+        'Background tasks: max. jobs in queue',
+    'Перемикань контексту за 1 мс':
+        'Context switches per 1 ms',
+    'Частка процесора на перемикання контексту':
+        'Processor share for context switching',
+    'Макс. блокування переривань t_id (виміряне), мс':
+        'Max. interrupt blocking t_id (measured), ms',
+    'Сер. час блокування критичними секціями, мс':
+        'Mean blocking time by critical sections, ms',
+    'Макс. час блокування критичними секціями, мс':
+        'Max. blocking time by critical sections, ms',
+    'Фонові задачі: інтервал, мс':
+        'Background tasks: interval, ms',
+    'Фонові задачі: робота, мс':
+        'Background tasks: work, ms',
+    'мс':
+        'ms',
+    'Боривітер + фонові задачі: запис логів на SD-карту':
+        'Boryviter + background tasks: log writing to SD card',
+    'Той самий «Боривітер», але процесор у вільний час записує логи на SD-карту: кожні 100 мс – 20 мс роботи. Перемикання на фонову задачу і назад коштує 5 мкс, а 10 % часу запис іде з вимкненими перериваннями (критичні секції по 0,2 мс). Питання: наскільки фонова задача затримує події реального часу. Значення ілюстративні.':
+        'The same “Boryviter”, but in idle time the processor writes logs to an SD card: 20 ms of work every 100 ms. Switching to the background task and back costs 5 μs, and 10 % of the writing runs with interrupts disabled (critical sections of 0.2 ms). Question: how much does the background task delay real-time events. Values are illustrative.',
 }

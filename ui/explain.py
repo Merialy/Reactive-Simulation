@@ -114,6 +114,14 @@ def scenario_facts(sc) -> dict:
     else:
         facts.append((tr("немає"), tr("відмов – нормальна робота"), ""))
     facts.append((f"≈ {_sec(T)} " + tr("с"), tr("модельного часу ({n} подій МРЧ)", n=f"{sc.N:,}".replace(",", " ")), ""))
+    if sc.has_background():
+        b = sc.background
+        if b.mode == "continuous":
+            facts.append((pct(max(0.0, 1 - u)), tr("фонові задачі – увесь вільний час процесора"), ""))
+        else:
+            ub = b.load()
+            lvlb = "err" if u + ub >= 1 else ("warn" if u + ub > 0.95 else "")
+            facts.append((pct(ub), tr("фонові задачі (разом з подіями {t})", t=pct(u + ub)), lvlb))
 
     for f in active:
         if f.start_ms >= T > 0:
@@ -133,6 +141,9 @@ def scenario_facts(sc) -> dict:
     hint = (tr("Після запуску порівняйте таблицю «Під час дії відмов» з основною. Щоб побачити вплив відмови, "
                "запустіть сценарій ще раз без неї (зніміть галочку) і порівняйте обидва запуски в «Історії».")
             if active else tr("Після запуску головне – «P порушення дедлайну»: для ЖРЧ вона має бути 0."))
+    if sc.has_background() and not active:
+        hint = tr("Після запуску подивіться «Макс. час реакції» і «Час блокування» для ЖРЧ. Щоб побачити вплив фонових "
+                  "задач, запустіть сценарій ще раз з режимом «немає» і порівняйте обидва запуски в «Історії».")
     return {"facts": facts, "alerts": alerts, "hint": hint}
 
 
@@ -172,6 +183,23 @@ def scenario_conclusion(sc, res, P=None) -> str:
             out.append(f"<span style='color:{warn}'>⚠ " + tr("М'які події (МРЧ) запізнюються:") + " " +
                        "; ".join(tr("{n} – у {p} випадків", n=_q(et.name), p=pct(p)) for et, p in m) +
                        ".</span> " + _soft_words(max(p for _, p in m)))
+
+    sysr = res.get("system") or {}
+    if sc.has_background() and sysr:
+        g = lambda k: (sysr.get(k) or {}).get("mean", 0.0)
+        b = sc.background
+        line = tr("Фонові задачі займали {u} процесора.", u=pct(g("bg_util")))
+        if b.mode != "continuous" and g("bg_count") > 0:
+            line += " " + tr("Одна фонова робота виконувалась у середньому {a} мс (найдовше {m} мс).",
+                             a=fmt(g("bg_resp_mean"), 3), m=fmt(g("bg_resp_max"), 3))
+            if b.deadline_ms and g("bg_p_miss") > 0:
+                line += " " + tr("Її дедлайн {d} мс порушено у {p} випадків.", d=fmt(b.deadline_ms), p=pct(g("bg_p_miss")))
+        out.append(line)
+        if b.crit_share > 0 and b.crit_ms > 0:
+            out.append(tr("Критичні секції фонової задачі затримували початок обробки подій до {t} мс (час блокування); "
+                          "перемикання контексту забирало {c} процесора.", t=fmt(g("tid_max"), 3), c=pct(g("cs_util"))))
+        elif b.t_cs_ms > 0:
+            out.append(tr("Перемикання контексту на фонову задачу і назад забирало {c} процесора.", c=pct(g("cs_util"))))
 
     for et in sc.event_types:
         wh = et.weakly_hard()

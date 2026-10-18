@@ -85,6 +85,17 @@ def main(argv=None):
         fs = res.get('faults', {})
         print(f"Хибних переривань: {fs.get('storm_events', {}).get('mean', 0):.0f}; "
               f"подій з перевищенням WCET: {fs.get('overrun_events', {}).get('mean', 0):.0f} (у середньому за прогін)")
+    sysr = res.get('system') or {}
+    if sysr:
+        print("\nСистемні показники (середнє за прогони):")
+        labels = {'q0_max': "макс. довжина черги Q0", 'qh_max': "макс. довжина черги QH (ЖРЧ)",
+                  'qs_max': "макс. довжина черги QS (МРЧ)", 'bg_util': "фонові задачі: частка процесора",
+                  'bg_resp_mean': "фонові задачі: сер. час виконання, мс", 'bg_resp_max': "фонові задачі: макс. час, мс",
+                  'bg_p_miss': "фонові задачі: P порушення дедлайну", 'bg_backlog_max': "фонові задачі: макс. черга",
+                  'cs_per_ms': "перемикань контексту за 1 мс", 'cs_util': "частка процесора на перемикання",
+                  'tid_max': "макс. блокування переривань t_id, мс", 'bg_count': "фонових робіт виконано"}
+        for k, v in sysr.items():
+            print(f"  {labels.get(k, k):<44}{v['mean']:.4g}")
     print(f"\nR = {args.replications}, seed = {args.seed}")
 
     if args.save:

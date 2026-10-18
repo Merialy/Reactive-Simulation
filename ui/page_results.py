@@ -10,8 +10,9 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QHBoxL
                                QTableWidget, QVBoxLayout, QWidget, QScrollArea, QFrame)
 
 from config import Config
-from ui.core import (EXTRA_ROWS, FAULT_ROWS, SYSTEM_ROWS, WH_ROWS, comma, METRIC_SHORT, PER_TYPE_ROWS,
-                     export_batch_excel, export_scenario_excel, extra_value, fmt, fmt_ci, system_values, theory_table)
+from ui.core import (EXTRA_ROWS, FAULT_ROWS, comma, METRIC_SHORT, PER_TYPE_ROWS, export_batch_excel,
+                     export_scenario_excel, extra_value, fmt, fmt_ci, system_rows, system_values, theory_table,
+                     type_rows)
 from ui.explain import batch_conclusion, scenario_conclusion
 from ui.widgets import PALETTE, Banner, Card, PageHeader, button, color, muted, ro_item
 from ui.i18n import tr, tr_msg
@@ -101,7 +102,7 @@ class ResultsPage(QWidget):
         self.body.addWidget(self.main_card)
 
         self.system_card = Card(tr("Системні показники"),
-                                tr("U, H, U_os і η – за формулами розділу 1; максимальні довжини черг – за моделюванням."))
+                                tr("U, H, U_os і η – за формулами розділу 1; решта – за моделюванням."))
         self.system_table = self._make_table()
         self.system_card.add(self.system_table)
         self.body.addWidget(self.system_card)
@@ -182,7 +183,7 @@ class ResultsPage(QWidget):
         {"excel": self._render_excel, "scenario": self._render_scenario, "doc": self._render_doc}[r["kind"]]()
         self._fit_height(self.table, 40)
         self._fit_height(self.fault_table, 20)
-        self._fit_height(self.system_table, 10)
+        self._fit_height(self.system_table, 20)
         self._fit_height(self.extra_table, 20)
         self._fit_height(self.theory_table, 10)
 
@@ -286,8 +287,7 @@ class ResultsPage(QWidget):
             self.tiles[3].set(tr("немає"), "", tr("відмов у сценарії"))
 
         self._conclude(lambda: scenario_conclusion(sc, res, PALETTE))
-        has_wh = any(et.weakly_hard() for et in sc.event_types)
-        self._fill_types(self.table, sc, res, PER_TYPE_ROWS + (WH_ROWS if has_wh else []))
+        self._fill_types(self.table, sc, res, type_rows(sc))
         self._fill_system(sc, res)
         self.extra_card.setVisible(False)
         self.theory_card.setVisible(False)
@@ -364,20 +364,21 @@ class ResultsPage(QWidget):
 
     def _fill_system(self, sc, res):
         vals = system_values(sc, res)
+        rows = system_rows(sc)
         t = self.system_table
         t.clear()
-        t.setRowCount(len(SYSTEM_ROWS))
+        t.setRowCount(len(rows))
         t.setColumnCount(1)
-        t.setVerticalHeaderLabels([lab for _, lab in SYSTEM_ROWS])
+        t.setVerticalHeaderLabels([lab for _, lab in rows])
         t.setHorizontalHeaderItem(0, ro_item(tr("Значення"), align_right=False))
-        for i, (key, _) in enumerate(SYSTEM_ROWS):
+        for i, (key, _) in enumerate(rows):
             v = vals.get(key)
             if v is None:
                 t.setItem(i, 0, ro_item("—"))
                 continue
             it = ro_item(fmt(v, 4) if key.endswith("_max") else fmt(v, 3))
-            if key == "H" and v <= 0:
-                it.setForeground(color("err"))
+            if key == "H" and v <= 0 or key == "bg_p_miss" and v > 0:
+                it.setForeground(color("err" if key == "H" else "warn"))
             t.setItem(i, 0, it)
         t.resizeColumnsToContents()
         self.system_card.setVisible(True)

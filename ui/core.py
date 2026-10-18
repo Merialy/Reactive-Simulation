@@ -353,6 +353,49 @@ SYSTEM_ROWS = [
     ("qh_max", tr("Макс. довжина черги QH (ЖРЧ)")),
     ("qs_max", tr("Макс. довжина черги QS (МРЧ)")),
 ]
+# Фонові задачі (версія 4.6): системні показники і час блокування для кожного типу
+SYSTEM_BG_ROWS = [
+    ("bg_util", tr("Фонові задачі: частка процесора")),
+    ("bg_resp_mean", tr("Фонові задачі: сер. час виконання роботи, мс")),
+    ("bg_resp_max", tr("Фонові задачі: макс. час виконання роботи, мс")),
+    ("bg_p_miss", tr("Фонові задачі: ймовірність порушення дедлайну")),
+    ("bg_backlog_max", tr("Фонові задачі: макс. робіт у черзі")),
+    ("cs_per_ms", tr("Перемикань контексту за 1 мс")),
+    ("cs_util", tr("Частка процесора на перемикання контексту")),
+    ("tid_max", tr("Макс. блокування переривань t_id (виміряне), мс")),
+]
+BLOCK_ROWS = [
+    ("blocking_mean", tr("Сер. час блокування критичними секціями, мс")),
+    ("blocking_max", tr("Макс. час блокування критичними секціями, мс")),
+]
+
+
+def system_rows(scenario):
+    """Рядки системних показників для сценарію (з фоновими задачами – більше рядків)."""
+    if not scenario.has_background():
+        return list(SYSTEM_ROWS)
+    b = scenario.background
+    rows = list(SYSTEM_ROWS) + [r for r in SYSTEM_BG_ROWS
+                                if not (b.mode == "continuous" and r[0] in ("bg_resp_mean", "bg_resp_max",
+                                                                             "bg_p_miss", "bg_backlog_max"))
+                                and not (r[0] == "bg_p_miss" and not b.deadline_ms)
+                                and not (r[0] in ("cs_per_ms", "cs_util") and not b.t_cs_ms)
+                                and not (r[0] == "tid_max" and not (b.crit_ms and b.crit_share))]
+    return rows
+
+
+def type_rows(scenario):
+    """Рядки таблиці показників для типів подій."""
+    rows = list(PER_TYPE_ROWS)
+    b = scenario.background
+    if scenario.has_background() and b.crit_ms > 0 and b.crit_share > 0:
+        i = [k for k, _ in rows].index("readiness")
+        rows[i:i] = BLOCK_ROWS
+    if any(et.weakly_hard() for et in scenario.event_types):
+        rows += WH_ROWS
+    return rows
+
+
 # Додаткові показники для серії з таблиці параметрів (2 типи подій)
 EXTRA_ROWS = [
     ("srt_p95", tr("МРЧ: мін. дедлайн для P ≤ 5 %, мс")),
@@ -379,7 +422,7 @@ def system_values(scenario, res: Dict) -> Dict[str, Optional[float]]:
     from simulation.analytic import scenario_os_share, system_load
     u = scenario.utilization()
     vals = {"U": u, **system_load(u, scenario_os_share(scenario))}
-    for k in ("q0_max", "qh_max", "qs_max"):
+    for k in ("q0_max", "qh_max", "qs_max") + tuple(k for k, _ in SYSTEM_BG_ROWS):
         v = (res.get("system") or {}).get(k)
         vals[k] = v["mean"] if v else None
     return vals
@@ -425,9 +468,9 @@ def export_scenario_excel(path: str, scenario, res: Dict, settings: Dict):
                            tr("m з n"): (f"{et.wh_m}/{et.wh_n}" if et.weakly_hard() else "")}
                           for et in scenario.event_types])
     sysv = system_values(scenario, res)
-    system = pd.DataFrame([(lab, sysv.get(k)) for k, lab in SYSTEM_ROWS], columns=[tr("Показник"), tr("Значення")])
-    rows = PER_TYPE_ROWS + (WH_ROWS if any(et.weakly_hard() for et in scenario.event_types) else []) + \
-        (FAULT_ROWS if scenario.active_faults() else [])
+    system = pd.DataFrame([(lab, sysv.get(k)) for k, lab in system_rows(scenario)],
+                          columns=[tr("Показник"), tr("Значення")])
+    rows = type_rows(scenario) + (FAULT_ROWS if scenario.active_faults() else [])
     mean = pd.DataFrame(index=[r[1] for r in rows], columns=names)
     ci = mean.copy()
     for j, n in enumerate(names):
@@ -437,6 +480,11 @@ def export_scenario_excel(path: str, scenario, res: Dict, settings: Dict):
                 mean.iloc[i, j] = v["mean"]
                 ci.iloc[i, j] = v["ci"]
     extra = [(tr("Сценарій"), scenario.name), (tr("U (без відмов)"), round(scenario.utilization(), 4))]
+    if scenario.has_background():
+        b = scenario.background
+        extra += [(tr("Фонові задачі"), b.mode), (tr("Фонові задачі: інтервал, мс"), b.interval_ms),
+                  (tr("Фонові задачі: робота, мс"), b.work_ms), ("t_cs, " + tr("мс"), b.t_cs_ms),
+                  ("t_id, " + tr("мс"), b.crit_ms), (tr("Частка в критичних секціях"), b.crit_share)]
     if scenario.active_faults():
         extra.append((tr("U під час відмов"), round(scenario.utilization_during_faults(), 4)))
         extra += [(tr("Відмова"), tr_msg(f.label())) for f in scenario.active_faults()]

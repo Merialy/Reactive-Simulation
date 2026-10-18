@@ -164,6 +164,21 @@ def main():
         log("  " + w.results.banner.label.text())
     step("5. Запуск сценарію з відмовою, графіки", run_sc)
 
+    def background():
+        w.go("scenario")
+        p = os.path.join("scenarios", "boryviter_background.json")
+        assert w.scenario.load(p), "сценарій з фоновими задачами не відкрився"
+        shot("07d_scenario_background")
+        w.run_scenario()
+        wait_worker()
+        page_is("results")
+        rows = [w.results.system_table.verticalHeaderItem(i).text() for i in range(w.results.system_table.rowCount())]
+        assert any("Фонов" in r or "Background" in r for r in rows), "немає показників фонових задач"
+        shot("07e_results_background", w.results.system_card)
+        shot("07f_results_background_types", w.results.main_card)
+        log("  " + w.results.concl.text()[:200].replace("<br>", " | "))
+    step("5б. Фонові задачі (запис логів на SD-карту)", background)
+
     def history():
         w.go("history")
         shot("11_history")

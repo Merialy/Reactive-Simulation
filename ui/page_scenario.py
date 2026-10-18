@@ -11,8 +11,8 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QFileDia
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QScrollArea, QSpinBox,
                                QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
-from simulation.model import (HRT, OVERRUN, PERIODIC, POISSON, SRT, STORM, EventType, Fault, Platform,
-                              Scenario)
+from simulation.model import (BG_CONTINUOUS, BG_NONE, BG_PERIODIC, BG_POISSON, HRT, OVERRUN, PERIODIC, POISSON, SRT,
+                              STORM, Background, EventType, Fault, Platform, Scenario)
 from ui.core import comma, fmt, parse_number
 from html import escape
 
@@ -125,7 +125,7 @@ class ScenarioPage(QWidget):
         self.story_card.add(self.story_desc)
         facts = QHBoxLayout()
         facts.setSpacing(12)
-        self.facts = [Fact() for _ in range(4)]
+        self.facts = [Fact() for _ in range(5)]          # 5-та плитка – фонові задачі (якщо є)
         for f in self.facts:
             facts.addWidget(f, 1)
         self.story_card.add(facts)
@@ -213,6 +213,48 @@ class ScenarioPage(QWidget):
         lay.addWidget(tcard)
 
         # ---------------- Відмови ----------------
+        # ---------------- Фонові задачі ----------------
+        bcard = Card(tr("Фонові задачі"),
+                     tr("Робота з найнижчим пріоритетом (запис логів, самотестування пам'яті): виконується, лише коли "
+                        "немає подій, і переривається будь-якою подією. Затримує події лише через перемикання "
+                        "контексту t_cs і критичні секції з вимкненими перериваннями."))
+        bg = QGridLayout()
+        bg.setHorizontalSpacing(10)
+        self.bg_mode = QComboBox()
+        for label, mode in ((tr("немає"), BG_NONE), (tr("періодично"), BG_PERIODIC), (tr("випадково"), BG_POISSON),
+                            (tr("постійно (процесор ніколи не простоює)"), BG_CONTINUOUS)):
+            self.bg_mode.addItem(label, mode)
+        self.bg_mode.setToolTip(tr("• періодично – кожні «інтервал» мс з'являється робота тривалістю «робота» мс;\n"
+                                   "• випадково – робота з'являється в середньому раз на «інтервал» мс;\n"
+                                   "• постійно – фонова робота є завжди (найгірший випадок)."))
+        self.bg_interval = NumberEdit(100.0, minimum=0)
+        self.bg_work = NumberEdit(1.0, minimum=0)
+        self.bg_deadline = NumberEdit(None, allow_empty=True, minimum=0)
+        self.bg_tcs = NumberEdit(0.0, minimum=0)
+        self.bg_crit = NumberEdit(0.0, minimum=0)
+        self.bg_share = NumberEdit(0.0, minimum=0)
+        fields = [(tr("Режим"), self.bg_mode, None),
+                  (tr("Інтервал, мс"), self.bg_interval, tr("Період (періодично) або середній інтервал (випадково) між фоновими роботами")),
+                  (tr("Робота, мс"), self.bg_work, tr("Скільки процесорного часу потребує одна фонова робота")),
+                  (tr("Дедлайн, мс"), self.bg_deadline, tr("Допустимий час виконання однієї фонової роботи (порожньо – без дедлайну)")),
+                  (tr("Перемикання t_cs, мс"), self.bg_tcs, tr("Час перемикання контексту, коли подія витісняє фонову задачу, і при поверненні до неї")),
+                  (tr("Критична секція t_id, мс"), self.bg_crit, tr("Тривалість однієї ділянки фонової задачі з вимкненими перериваннями")),
+                  (tr("Частка в критичних секціях"), self.bg_share, tr("Яку частку свого часу фонова задача працює з вимкненими перериваннями (0…1)"))]
+        for i, (lab, w, tip) in enumerate(fields):
+            r, c = i % 4, (i // 4) * 2
+            ql = QLabel(lab)
+            if tip:
+                ql.setToolTip(tip); w.setToolTip(tip)
+            bg.addWidget(ql, r, c)
+            bg.addWidget(w, r, c + 1)
+        bg.setColumnStretch(1, 1)
+        bg.setColumnStretch(3, 1)
+        bcard.add(bg)
+        self.bg_mode.currentIndexChanged.connect(self._bg_mode_changed)
+        for w in (self.bg_interval, self.bg_work, self.bg_deadline, self.bg_tcs, self.bg_crit, self.bg_share):
+            w.valueChanged.connect(self._changed)
+        lay.addWidget(bcard)
+
         fcard = Card(tr("Відмови"), tr("Що станеться, якщо щось піде не так. Шторм переривань – хибні переривання "
                                 "(наприклад, від несправної лінії). Перевищення WCET – обробка триває довше, "
                                 "ніж заплановано. Відмова діє лише на заданому інтервалі часу."))
@@ -326,6 +368,17 @@ class ScenarioPage(QWidget):
         self.faults.setRowCount(0)
         for f in sc.faults:
             self._append_fault(f)
+        b = sc.background or Background()
+        self.bg_mode.blockSignals(True)
+        self.bg_mode.setCurrentIndex(max(0, self.bg_mode.findData(b.mode)))
+        self.bg_mode.blockSignals(False)
+        self.bg_interval.setValue(b.interval_ms)
+        self.bg_work.setValue(b.work_ms)
+        self.bg_deadline.setValue(b.deadline_ms)
+        self.bg_tcs.setValue(b.t_cs_ms)
+        self.bg_crit.setValue(b.crit_ms)
+        self.bg_share.setValue(b.crit_share)
+        self._bg_mode_changed(emit=False)
         self._loading = False
         self._refresh_targets()
         self.update_summary()
@@ -496,9 +549,21 @@ class ScenarioPage(QWidget):
                 f.probability = self._num(self.faults, r, F_PROB, tr("«{n}»: імовірність", n=label), errors) or 0.0
                 f.factor = self._num(self.faults, r, F_FACTOR, tr("«{n}»: множник", n=label), errors) or 0.0
             faults.append(f)
+        mode = self.bg_mode.currentData()
+        background = None
+        if mode != BG_NONE:
+            for w, lab in ((self.bg_interval, tr("Інтервал")), (self.bg_work, tr("Робота")),
+                           (self.bg_deadline, tr("Дедлайн")), (self.bg_tcs, "t_cs"), (self.bg_crit, "t_id"),
+                           (self.bg_share, tr("Частка в критичних секціях"))):
+                if w.isEnabled() and not w.is_valid():
+                    errors.append(tr("Фонові задачі – {w}: некоректне число", w=lab))
+            background = Background(mode=mode, interval_ms=self.bg_interval.value() or 0.0,
+                                    work_ms=self.bg_work.value() or 0.0, deadline_ms=self.bg_deadline.value(),
+                                    t_cs_ms=self.bg_tcs.value() or 0.0, crit_ms=self.bg_crit.value() or 0.0,
+                                    crit_share=self.bg_share.value() or 0.0)
         sc = Scenario(name=self.name.text().strip() or tr("Сценарій"), platform=plat, event_types=ets,
                       N=int(self.n_spin.value()), warmup_fraction=self.warmup.value() or 0.05,
-                      description=self.desc.text().strip(), faults=faults)
+                      description=self.desc.text().strip(), faults=faults, background=background)
         return sc, errors
 
     # ==================================================================
@@ -510,6 +575,18 @@ class ScenarioPage(QWidget):
         if self.sender() is self.types:
             self._refresh_targets()
         self._timer.start()
+
+    def _bg_mode_changed(self, *args, emit=True):
+        """Поля фонових задач доступні лише для вибраного режиму."""
+        mode = self.bg_mode.currentData()
+        on = mode != BG_NONE
+        jobs = mode in (BG_PERIODIC, BG_POISSON)
+        for w in (self.bg_interval, self.bg_work, self.bg_deadline):
+            w.setEnabled(jobs)
+        for w in (self.bg_tcs, self.bg_crit, self.bg_share):
+            w.setEnabled(on)
+        if emit:
+            self._changed()
 
     def add_type(self):
         n = self.types.rowCount() + 1

@@ -24,7 +24,7 @@ def test_pct():
 def test_story_and_conclusion(path):
     sc = Scenario.load(path)
     info = scenario_facts(sc)
-    assert len(info["facts"]) == 4
+    assert len(info["facts"]) == (5 if sc.has_background() else 4)
     assert (info["facts"][2][0] == "немає") == (not sc.active_faults())
     assert info["alerts"] and info["hint"]
     sc.N = 3000

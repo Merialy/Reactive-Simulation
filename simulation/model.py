@@ -19,6 +19,8 @@ HRT, SRT = "HRT", "SRT"
 PERIODIC, POISSON = "periodic", "poisson"
 STORM, OVERRUN = "storm", "overrun"
 FAULT_KINDS = (STORM, OVERRUN)
+BG_NONE, BG_PERIODIC, BG_POISSON, BG_CONTINUOUS = "none", "periodic", "poisson", "continuous"
+BG_MODES = (BG_NONE, BG_PERIODIC, BG_POISSON, BG_CONTINUOUS)
 
 
 def cycles_to_ms(cycles: float, f_clk_mhz: float) -> float:
@@ -126,6 +128,43 @@ class Fault:
 
 
 @dataclass
+class Background:
+    """
+    Фонові задачі (BG, версія 4.6; розділ 1, п. 1.2.2 і 1.4.1): робота з найнижчим пріоритетом – запис логів,
+    самотестування пам'яті тощо. Процесор виконує її, лише коли черги Q0, QH і QS порожні; будь-яке
+    переривання її витісняє, після чого вона продовжується з місця зупинки (черга QBG).
+
+    mode = "none"       – фонових задач немає;
+           "periodic"   – кожні interval_ms з'являється робота тривалістю work_ms;
+           "poisson"    – робота з'являється випадково, в середньому раз на interval_ms;
+           "continuous" – фонова робота є завжди (процесор ніколи не простоює).
+    deadline_ms     – допустимий час виконання однієї фонової роботи (None – без дедлайну).
+    t_cs_ms         – час перемикання контексту (показник 11): коли подія витісняє фонову задачу, ISR
+                      триває на t_cs довше; повернення до фонової задачі теж коштує t_cs.
+    crit_ms         – тривалість однієї критичної секції фонової задачі з вимкненими перериваннями (t_id,
+                      показник 10);
+    crit_share      – частка часу фонової задачі всередині критичних секцій (0…1). Подія, що надійшла в
+                      критичну секцію, чекає її завершення – це час блокування (показник 6).
+    """
+    mode: str = BG_NONE
+    interval_ms: float = 100.0
+    work_ms: float = 1.0
+    deadline_ms: Optional[float] = None
+    t_cs_ms: float = 0.0
+    crit_ms: float = 0.0
+    crit_share: float = 0.0
+
+    def active(self) -> bool:
+        return self.mode in (BG_PERIODIC, BG_POISSON, BG_CONTINUOUS)
+
+    def load(self) -> float:
+        """Частка процесора, потрібна фоновим задачам (для «постійно» – невизначена, 0)."""
+        if self.mode in (BG_PERIODIC, BG_POISSON) and self.interval_ms > 0:
+            return self.work_ms / self.interval_ms
+        return 0.0
+
+
+@dataclass
 class Scenario:
     name: str
     platform: Platform
@@ -134,6 +173,10 @@ class Scenario:
     warmup_fraction: float = 0.05           # частка подій, що відкидається на початку і в кінці
     description: str = ""
     faults: List[Fault] = field(default_factory=list)   # сценарії відмов (версія 3.2)
+    background: Optional[Background] = None              # фонові задачі (версія 4.6)
+
+    def has_background(self) -> bool:
+        return self.background is not None and self.background.active()
 
     # ---------- допоміжні величини ----------
     def s1(self) -> float:
@@ -214,6 +257,16 @@ class Scenario:
                     errors.append(f"Відмова «{f.label()}»: потрібно factor ≥ 1 і 0 < probability ≤ 1.")
                 if f.target is not None and f.target not in names:
                     errors.append(f"Відмова «{f.label()}»: тип подій «{f.target}» не знайдено.")
+        bg = self.background
+        if bg is not None and bg.mode not in BG_MODES:
+            errors.append("Фонові задачі: режим має бути none, periodic, poisson або continuous.")
+        elif self.has_background():
+            if bg.mode != BG_CONTINUOUS and (bg.interval_ms <= 0 or bg.work_ms <= 0):
+                errors.append("Фонові задачі: інтервал і обсяг роботи мають бути більшими за 0.")
+            if bg.t_cs_ms < 0 or bg.crit_ms < 0 or not (0 <= bg.crit_share <= 1):
+                errors.append("Фонові задачі: t_cs ≥ 0, критична секція ≥ 0, частка в критичних секціях від 0 до 1.")
+            if bg.deadline_ms is not None and bg.deadline_ms <= 0:
+                errors.append("Фонові задачі: дедлайн має бути більшим за 0.")
         if errors:
             return errors, warnings
 
@@ -235,6 +288,10 @@ class Scenario:
             if uf >= 1:
                 warnings.append(f"Під час відмов завантаження сягає U = {uf:.3f} ≥ 1: процесор перевантажений, "
                                 "черги зростають, поки діє відмова.")
+        if self.has_background() and self.background.mode != BG_CONTINUOUS and u < 1 \
+                and u + self.background.load() >= 1:
+            warnings.append(f"Завантаження разом з фоновими задачами U + U_BG = {u + self.background.load():.3f} ≥ 1: "
+                            "фонова робота не встигає виконуватися, її черга зростає.")
         if self.N < 1000:
             warnings.append(f"N = {self.N} < 1000: оцінки показників можуть бути нестійкими.")
         return errors, warnings
@@ -247,6 +304,8 @@ class Scenario:
                 e.pop("wh_m", None); e.pop("wh_n", None)
         if not d.get("faults"):
             d.pop("faults", None)            # сценарії без відмов – у форматі версії 2 (той самий ключ у БД)
+        if not self.has_background():
+            d.pop("background", None)        # без фонових задач – той самий формат і ключ у БД
         d["schema_version"] = 2
         return d
 
@@ -260,7 +319,8 @@ class Scenario:
         return Scenario(name=d.get("name", "Сценарій"), platform=p, event_types=ets,
                         N=int(d.get("N", 10000)), warmup_fraction=d.get("warmup_fraction", 0.05),
                         description=d.get("description", ""),
-                        faults=[Fault(**f) for f in d.get("faults", []) or []])
+                        faults=[Fault(**f) for f in d.get("faults", []) or []],
+                        background=Background(**d["background"]) if d.get("background") else None)
 
     @staticmethod
     def from_json(text: str) -> "Scenario":

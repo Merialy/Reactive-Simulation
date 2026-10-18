@@ -23,7 +23,8 @@ from collections import deque
 from typing import Dict, List
 import numpy as np
 
-from simulation.model import Scenario, HRT, SRT, PERIODIC, POISSON, STORM, OVERRUN
+from simulation.model import Scenario, HRT, PERIODIC, POISSON, STORM, OVERRUN, BG_PERIODIC, BG_POISSON, \
+    BG_CONTINUOUS
 from simulation import extra_metrics as xm
 
 INF = 1e30
@@ -34,6 +35,12 @@ METRICS_PER_TYPE = ("count", "wait_primary_mean", "wait_secondary_mean", "sojour
 METRICS_WH = ("wh_worst_miss", "wh_viol", "wh_ok")
 # системні показники (максимальні довжини черг)
 METRICS_SYSTEM = ("q0_max", "qh_max", "qs_max")
+# фонові задачі (версія 4.6): системні показники і час блокування подій критичними секціями
+METRICS_BG = ("bg_util", "cs_util", "cs_per_ms", "bg_count", "bg_resp_mean", "bg_resp_max", "bg_p_miss",
+              "bg_backlog_max", "tid_max")
+METRICS_BLOCKING = ("blocking_mean", "blocking_max")
+# стани процесора в журналі
+ST_IDLE, ST_ISR, ST_SEC, ST_BG, ST_BLOCKED, ST_SWITCH = 0, 1, 2, 3, 4, 5
 # показники для подій, що надійшли під час дії відмов (лише для сценаріїв з відмовами)
 METRICS_FAULT = ("count_fault", "sojourn_mean_fault", "sojourn_max_fault", "p_miss_fault")
 
@@ -43,6 +50,8 @@ class EventSimulation:
         self.rng = np.random.default_rng(seed)
         # окремий генератор для відмов: не зсуває основні потоки подій
         self.fault_rng = np.random.default_rng(None if seed is None else [int(seed), 2026])
+        # окремий генератор для фонових задач (версія 4.6) – з тієї ж причини
+        self.bg_rng = np.random.default_rng(None if seed is None else [int(seed), 2027])
 
     # ------------------------------------------------------------------
     def run(self, sc: Scenario, keep_events: bool = False) -> Dict:
@@ -106,6 +115,29 @@ class EventSimulation:
                     for k in peri}
         period = {k: 1.0 / types[k].rate for k in peri}
 
+        # ---- Фонові задачі (версія 4.6) ----
+        bg = sc.background if sc.has_background() else None
+        brng = self.bg_rng
+        bg_cont = bg is not None and bg.mode == BG_CONTINUOUS
+        t_cs = bg.t_cs_ms if bg else 0.0
+        crit_ms = bg.crit_ms if bg else 0.0
+        crit_share = bg.crit_share if bg else 0.0
+        if bg is not None and bg.mode == BG_PERIODIC:
+            next_bg_arr = bg.interval_ms
+        elif bg is not None and bg.mode == BG_POISSON:
+            next_bg_arr = brng.exponential(bg.interval_ms)
+        else:
+            next_bg_arr = INF
+        bg_q = deque()               # очікують: [момент надходження, залишок роботи, номер]
+        bg_cur = None                # виконується зараз (той самий формат); для «постійно» – залишок INF
+        next_bg_done = INF
+        bg_switch_back = False       # фонова задача була витіснена – повернення до неї коштує t_cs
+        bg_arr_t: List[float] = []; bg_end_t: List[float] = []
+        cs_times: List[float] = []   # моменти перемикань контексту (витіснення і повернення)
+        blk: List[float] = []        # час блокування кожної події критичною секцією
+        a_blk = blk.append
+        pend_i = -1                  # подія, що чекає завершення критичної секції / перемикання
+
         # ---- Записи подій ----
         ev_type: List[int] = []; arr: List[float] = []
         sp: List[float] = []; ep: List[float] = []
@@ -139,7 +171,27 @@ class EventSimulation:
         per_period = [period[k] for k in peri]
         n_per = len(peri)
 
-        while n_ref < n_ref_target or state != 0 or q0 or qh or qs:
+        def start_bg(t):
+            """Почати або продовжити фонову роботу (якщо вона є). Повертає True, якщо процесор зайнятий нею."""
+            nonlocal bg_cur, next_bg_done, bg_switch_back
+            if bg is None:
+                return False
+            if bg_cur is None:
+                if bg_q:
+                    bg_cur = bg_q.popleft()
+                elif bg_cont:
+                    bg_cur = [0.0, INF, -1]
+                else:
+                    return False
+            extra = 0.0
+            if bg_switch_back and t_cs > 0:
+                extra = t_cs
+                cs_times.append(t)
+            bg_switch_back = False
+            next_bg_done = INF if bg_cur[1] >= INF / 2 else t + extra + bg_cur[1]
+            return True
+
+        while n_ref < n_ref_target or state in (ST_ISR, ST_SEC, ST_BLOCKED, ST_SWITCH) or q0 or qh or qs:
             # ---- Найближча подія (порядок при рівності: Пуассон, періодичні, ISR, вторинна) ----
             t_next = INF; ev = 0; ev_k = -1
             if n_ref < n_ref_target and p_idx < n_pois and next_p < t_next:
@@ -155,10 +207,14 @@ class EventSimulation:
                 for j in range(S):
                     if storm_next[j] < t_next:
                         t_next = storm_next[j]; ev = 5; ev_k = j
+            if bg is not None and n_ref < n_ref_target and next_bg_arr < t_next:
+                t_next = next_bg_arr; ev = 6
             if next_prim_done < t_next:
                 t_next = next_prim_done; ev = 3
             if next_sec_done < t_next:
                 t_next = next_sec_done; ev = 4
+            if next_bg_done < t_next:
+                t_next = next_bg_done; ev = 7
             if ev == 0:
                 break                 # немає подій (наприклад, лише періодичні типи і N досягнуто)
             t = t_next
@@ -179,14 +235,46 @@ class EventSimulation:
                     storm_next[ev_k] = tn if tn <= f.end_ms() else INF
                 i = n_ev
                 n_ev += 1
-                a_type(k); a_arr(t); a_sp(0.0); a_ep(0.0); a_ss(0.0); a_es(0.0); a_rem(0.0)
+                a_type(k); a_arr(t); a_sp(0.0); a_ep(0.0); a_ss(0.0); a_es(0.0); a_rem(0.0); a_blk(0.0)
                 a_tseq[k](i)
                 if ref_flag[k]:
                     a_ref(i)
                     n_ref += 1
 
-                if state == 1:
+                if state == ST_ISR or state == ST_BLOCKED or state == ST_SWITCH:
                     q0.append(i)
+                elif state == ST_BG:
+                    # Подія витісняє фонову задачу. Якщо та в критичній секції (імовірність crit_share),
+                    # подія чекає її завершення (залишок секції ~ U(0, crit_ms)) – час блокування.
+                    d = 0.0
+                    if crit_share > 0 and crit_ms > 0 and brng.random() < crit_share:
+                        d = brng.random() * crit_ms
+                    if bg_cur[1] < INF / 2:
+                        left = max(0.0, next_bg_done - t)
+                        d = min(d, left)
+                        left -= d
+                        if left > 1e-12:
+                            bg_cur[1] = left
+                            bg_q.appendleft(bg_cur)
+                        else:
+                            bg_end_t[bg_cur[2]] = t + d
+                    bg_cur = None
+                    next_bg_done = INF
+                    bg_switch_back = True
+                    blk[i] = d
+                    pend_i = i
+                    if d > 0:
+                        state = ST_BLOCKED
+                        next_prim_done = t + d
+                    elif t_cs > 0:
+                        state = ST_SWITCH
+                        cs_times.append(t)
+                        next_prim_done = t + t_cs
+                    else:
+                        state = ST_ISR
+                        cur_p = i
+                        sp[i] = t
+                        next_prim_done = t + s1
                 else:
                     if state == 2:
                         rr = next_sec_done - t
@@ -198,6 +286,31 @@ class EventSimulation:
                     cur_p = i
                     sp[i] = t
                     next_prim_done = t + s1
+            elif ev == 6:
+                # нова фонова робота
+                j = len(bg_arr_t)
+                bg_arr_t.append(t); bg_end_t.append(0.0)
+                bg_q.append([t, bg.work_ms, j])
+                next_bg_arr = t + (bg.interval_ms if bg.mode == BG_PERIODIC else brng.exponential(bg.interval_ms))
+                if state == ST_IDLE and start_bg(t):
+                    state = ST_BG
+            elif ev == 3 and state in (ST_BLOCKED, ST_SWITCH):
+                # критична секція закінчилась → перемикання контексту → ISR події pend_i
+                if state == ST_BLOCKED and t_cs > 0:
+                    state = ST_SWITCH
+                    cs_times.append(t)
+                    next_prim_done = t + t_cs
+                else:
+                    state = ST_ISR
+                    cur_p = pend_i
+                    sp[cur_p] = t
+                    next_prim_done = t + s1
+            elif ev == 7:
+                # фонову роботу завершено
+                bg_end_t[bg_cur[2]] = t
+                bg_cur = None
+                next_bg_done = INF
+                state = ST_BG if start_bg(t) else ST_IDLE
             else:
                 if ev == 3:
                     i = cur_p
@@ -234,14 +347,19 @@ class EventSimulation:
                     rem[cur_s] = 0.0
                     next_sec_done = t + (rr if rr > 0 else service[ev_type[cur_s]])
                     state = 2
+                elif start_bg(t):
+                    state = ST_BG
                 else:
                     state = 0
 
-            log((t, len(q0), len(qh), len(qs), state, ev_type[cur_s] if cur_s >= 0 else -1))
+            log((t, len(q0), len(qh), len(qs), state, ev_type[cur_s] if cur_s >= 0 else -1,
+                 len(bg_q) + (1 if bg_cur is not None and bg_cur[2] >= 0 else 0)))
 
-        J = np.asarray(journal, dtype=float).reshape(-1, 6)
+        J = np.asarray(journal, dtype=float).reshape(-1, 7)
         out = self._statistics(sc, types, is_hrt, ref_seq, type_seq, ev_type, arr, sp, ep, ss, es,
-                               J[:, 0], J[:, 1], J[:, 2], J[:, 3], J[:, 4], J[:, 5].astype(int))
+                               J[:, 0], J[:, 1], J[:, 2], J[:, 3], J[:, 4], J[:, 5].astype(int),
+                               bg_info=dict(blk=blk, arr=bg_arr_t, end=bg_end_t, cs=cs_times, backlog=J[:, 6])
+                               if bg is not None else None)
         if active:
             out['faults'] = {'storm_events': float(n_storm), 'overrun_events': float(n_over)}
         if keep_events:
@@ -254,13 +372,13 @@ class EventSimulation:
 
     # ------------------------------------------------------------------
     def _statistics(self, sc, types, is_hrt, ref_seq, type_seq, ev_type, arr, sp, ep, ss, es,
-                    ev_t, ev_q0, ev_qh, ev_qs, ev_state, ev_sec_type) -> Dict:
+                    ev_t, ev_q0, ev_qh, ev_qs, ev_state, ev_sec_type, bg_info=None) -> Dict:
         K = len(types)                 # реальні типи; is_hrt може містити ще й хибні переривання шторму
         n_ref = len(ref_seq)
         i_start = int(np.ceil(n_ref * sc.warmup_fraction))
         i_end = int(np.floor(n_ref * (1 - sc.warmup_fraction)))
         empty = {'classic': {m: 0.0 for m in range(1, 19)}, 'per_type': {}, 'U': sc.utilization(),
-                 'system': {k: 0.0 for k in METRICS_SYSTEM}}
+                 'system': {k: 0.0 for k in METRICS_SYSTEM + (METRICS_BG if bg_info is not None else ())}}
         if n_ref == 0 or i_end <= i_start or i_start < 1:
             return empty
         t_start = arr[ref_seq[i_start - 1]]
@@ -332,6 +450,25 @@ class EventSimulation:
         system = {'q0_max': xm.queue_max(et_, A(ev_q0), t_start, t_end),
                   'qh_max': xm.queue_max(et_, A(ev_qh), t_start, t_end),
                   'qs_max': xm.queue_max(et_, A(ev_qs), t_start, t_end)}
+        blk_a = None
+        if bg_info is not None:
+            bgd = sc.background
+            blk_a = A(bg_info['blk'])
+            system['bg_util'] = f(((st == ST_BG) | (st == ST_BLOCKED)).astype(float))
+            cs = A(bg_info['cs'])
+            n_cs = int(((cs >= t_start) & (cs <= t_end)).sum())
+            system['cs_per_ms'] = n_cs / T
+            system['cs_util'] = n_cs * bgd.t_cs_ms / T
+            arr_b, end_b = A(bg_info['arr']), A(bg_info['end'])
+            mb = (arr_b >= t_start) & (arr_b <= t_end) & (end_b > 0)
+            resp = end_b[mb] - arr_b[mb]
+            system['bg_count'] = float(resp.size)
+            system['bg_resp_mean'] = float(resp.mean()) if resp.size else 0.0
+            system['bg_resp_max'] = float(resp.max()) if resp.size else 0.0
+            system['bg_p_miss'] = float((resp > bgd.deadline_ms).mean()) if (resp.size and bgd.deadline_ms) else 0.0
+            system['bg_backlog_max'] = xm.queue_max(et_, A(bg_info['backlog']), t_start, t_end)
+            sel_blk = blk_a[done[:len(blk_a)]] if blk_a.size else blk_a
+            system['tid_max'] = float(sel_blk.max()) if sel_blk.size else 0.0
 
         per_type = {}
         for k, et in enumerate(types):
@@ -342,6 +479,8 @@ class EventSimulation:
                 per_type[et.name]['count'] = 0
                 if et.weakly_hard():
                     per_type[et.name].update({key: 0.0 for key in METRICS_WH})
+                if blk_a is not None and sc.background.crit_share > 0 and sc.background.crit_ms > 0:
+                    per_type[et.name].update({key: 0.0 for key in METRICS_BLOCKING})
                 if sc.active_faults():
                     per_type[et.name].update({key: 0.0 for key in METRICS_FAULT})
                 continue
@@ -360,6 +499,10 @@ class EventSimulation:
                 'max_consec_miss': float(xm.max_consecutive(late[m])),
                 'readiness': xm.readiness(wp[m] + ws[m]),
             }
+            if blk_a is not None and sc.background.crit_share > 0 and sc.background.crit_ms > 0:
+                b = blk_a[m]
+                per_type[et.name]['blocking_mean'] = float(b.mean())
+                per_type[et.name]['blocking_max'] = float(b.max())
             if et.weakly_hard():
                 per_type[et.name].update(xm.weakly_hard(late[m], *et.weakly_hard()))
             if sc.active_faults():
